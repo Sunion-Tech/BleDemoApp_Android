@@ -1,3 +1,6 @@
 # BleDemoApp_Android
 ## Quick start
-Please set BARCODE_KEY defined in gradle.properties to build and run the App.
+Please add BARCODE_KEY definition to local.properties to build and run the App.
+```
+BARCODE_KEY="<Your bar code key>"
+```
