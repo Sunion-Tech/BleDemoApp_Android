@@ -1,0 +1,4 @@
+[submodule "core_ble_android"]
+	path = core_ble_android
+	url = https://github.com/Sunion-Tech/core_ble_android.git
+	branch = master
