@@ -19,6 +19,7 @@
 .gradle
 /local.properties
 secure.properties
+gradle.properties
 
 # OS-specific files
 .DS_Store
