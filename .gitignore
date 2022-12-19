@@ -1,0 +1,95 @@
+# User-specific configurations
+.idea/libraries/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/.name
+.idea/compiler.xml
+.idea/copyright/profiles_settings.xml
+.idea/encodings.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/scopes/scope_settings.xml
+.idea/vcs.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+*.iml
+.idea/caches/
+.idea/
+
+.gradle
+/local.properties
+secure.properties
+gradle.properties
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+
+#generated files
+/build
+/*/build
+/app/build/
+/app/release/
+/*/*.properties
+/captures
+/*.zip
+/*/*.apk
+.externalNativeBuild
+*bundle/
+ktlint-report-in-checkstyle-format.xml
+
+# Crashlytics configuations
+com_crashlytics_export_strings.xml
+
+# Signing files
+.signing/
+/app/*.jks
+*.jks
+
+*.pem
+keystore.properties
+
+#others
+.cxx/
+
+# Google Services (e.g. APIs or Firebase)
+ google-services.json
+/app/google-services.json
+#
+# Freeline
+freeline.py
+freeline/
+freeline_project_description.json
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+
+# Version control
+vcs.xml
+
+# lint
+lint/intermediates/
+lint/generated/
+lint/outputs/
+lint/tmp/
+# lint/reports/
+androidtestlib/libs/
+androidtestlib/src/main/res/drawable/
+app/libs/
+app/sampledata/
+rxble/libs/
+shared/libs/
+shared/src/main/kotlin/
+testlib/libs/
+# Module
+core_ble_android
