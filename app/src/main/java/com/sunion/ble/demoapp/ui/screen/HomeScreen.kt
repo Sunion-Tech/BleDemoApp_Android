@@ -62,6 +62,11 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.ToggleGuidingCode to "Toggle guiding code",
         TaskCode.ToggleAutoLock to "Toggle auto lock",
         TaskCode.SetLockLocation to "Set lock location",
+        TaskCode.QueryTokenArray to "Query token array",
+        TaskCode.QueryToken to "Query token",
+        TaskCode.AddOneTimeToken to "Add one time token",
+        TaskCode.EditToken to "Edit token",
+        TaskCode.DeleteToken to "Delete token",
         TaskCode.GetFwVersion to "Get firmware version",
         TaskCode.FactoryReset to "Factory reset",
         TaskCode.Disconnect to "Disconnect"

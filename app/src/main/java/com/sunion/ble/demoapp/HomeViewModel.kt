@@ -30,7 +30,8 @@ class HomeViewModel @Inject constructor(
     private val lockNameUseCase: LockNameUseCase,
     private val lockDirectionUseCase: LockDirectionUseCase,
     private val lockConfigD4UseCase: LockConfigD4UseCase,
-    private val lockUtilityUseCase: LockUtilityUseCase
+    private val lockUtilityUseCase: LockUtilityUseCase,
+    private val lockTokenUseCase: LockTokenUseCase
 ): ViewModel(){
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
@@ -179,6 +180,26 @@ class HomeViewModel @Inject constructor(
             // Factory reset
             TaskCode.FactoryReset -> {
                 factoryReset("0000")
+            }
+            // Query TokenArray
+            TaskCode.QueryTokenArray -> {
+                queryTokenArray()
+            }
+            // Query Token
+            TaskCode.QueryToken -> {
+                queryToken()
+            }
+            // Add OneTime Token
+            TaskCode.AddOneTimeToken -> {
+                addOneTimeToken("L","Tom1")
+            }
+            // Edit Token
+            TaskCode.EditToken -> {
+                editToken(9,"A","Tom2")
+            }
+            // Delete Token
+            TaskCode.DeleteToken -> {
+                deleteToken(9)
             }
             // Disconnect
             TaskCode.Disconnect -> {
@@ -614,6 +635,76 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    private fun queryTokenArray(){
+        lockTokenUseCase.queryTokenArray()
+            .map { tokenArray ->
+                showLog("queryTokenArray: $tokenArray\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("queryTokenArray exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun queryToken(){
+        lockTokenUseCase.queryTokenArray()
+            .map { tokenArray ->
+                tokenArray.forEach { index ->
+                    lockTokenUseCase.queryToken(index)
+                        .collect { deviceToken ->
+                            if(deviceToken.isPermanent){
+                                showLog("queryToken[$index] is permanent token: $deviceToken\n")
+                            } else {
+                                showLog("queryToken[$index] is one time token: ${deviceToken.token} name:${deviceToken.name} permission:${deviceToken.permission}\n")
+                            }
+                        }
+                }
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("queryToken exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun addOneTimeToken(permission: String, name: String) {
+        lockTokenUseCase.addOneTimeToken(permission,name)
+            .map { result ->
+                    showLog("addOneTimeToken permission:$permission name:$name \nresult= $result\n")
+                }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("addOneTimeToken exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun editToken(index:Int, permission: String, name: String) {
+        lockTokenUseCase.editToken(index, permission, name)
+            .map { result ->
+                showLog("editToken[$index] permission:$permission name:$name \nresult= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("editToken exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun deleteToken(index: Int, code: String = "") {
+        lockTokenUseCase.deleteToken(index, code)
+            .map { result ->
+                showLog("deleteToken[$index] code:$code \nresult= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("deleteToken exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+
     private fun disconnect() {
         statefulConnection.disconnect()
         _bleConnectionStateListener?.cancel()
@@ -698,6 +789,11 @@ object TaskCode {
     const val ToggleGuidingCode = 15
     const val ToggleAutoLock = 16
     const val SetLockLocation = 17
+    const val QueryTokenArray = 18
+    const val QueryToken = 19
+    const val AddOneTimeToken = 20
+    const val EditToken = 21
+    const val DeleteToken = 22
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val Disconnect = 99
