@@ -67,6 +67,11 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.AddOneTimeToken to "Add one time token",
         TaskCode.EditToken to "Edit token",
         TaskCode.DeleteToken to "Delete token",
+        TaskCode.GetAccessCodeArray to "Get access code array",
+        TaskCode.QueryAccessCode to "Query access code",
+        TaskCode.AddAccessCode to "Add access code",
+        TaskCode.EditAccessCode to "Edit access code",
+        TaskCode.DeleteAccessCode to "Delete access code",
         TaskCode.GetFwVersion to "Get firmware version",
         TaskCode.FactoryReset to "Factory reset",
         TaskCode.Disconnect to "Disconnect"

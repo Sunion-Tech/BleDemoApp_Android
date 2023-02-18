@@ -31,7 +31,8 @@ class HomeViewModel @Inject constructor(
     private val lockDirectionUseCase: LockDirectionUseCase,
     private val lockConfigD4UseCase: LockConfigD4UseCase,
     private val lockUtilityUseCase: LockUtilityUseCase,
-    private val lockTokenUseCase: LockTokenUseCase
+    private val lockTokenUseCase: LockTokenUseCase,
+    private val lockAccessCodeUseCase: LockAccessCodeUseCase
 ): ViewModel(){
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
@@ -200,6 +201,26 @@ class HomeViewModel @Inject constructor(
             // Delete Token
             TaskCode.DeleteToken -> {
                 deleteToken(9)
+            }
+            // Get AccessCode Array
+            TaskCode.GetAccessCodeArray -> {
+                getAccessCodeArray()
+            }
+            // Query AccessCode
+            TaskCode.QueryAccessCode -> {
+                queryAccessCode()
+            }
+            // Add AccessCode
+            TaskCode.AddAccessCode -> {
+                addAccessCode()
+            }
+            // Edit AccessCode
+            TaskCode.EditAccessCode -> {
+                editAccessCode()
+            }
+            // Delete AccessCode
+            TaskCode.DeleteAccessCode -> {
+                deleteAccessCode(1)
             }
             // Disconnect
             TaskCode.Disconnect -> {
@@ -704,6 +725,85 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    private fun getAccessCodeArray(){
+        lockAccessCodeUseCase.getAccessCodeArray()
+            .map { accessCodeArray ->
+                showLog("getAccessCodeArray: $accessCodeArray\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("getAccessCodeArray exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun queryAccessCode(){
+        lockAccessCodeUseCase.getAccessCodeArray()
+            .map { list ->
+                val indexIterable = list
+                    .mapIndexed{index, boolean -> if(boolean && index != 0) index else -1 }
+                    .filter { index -> index != -1 }
+                indexIterable.forEach { index ->
+                    lockAccessCodeUseCase.queryAccessCode(index)
+                        .collect { accessCode ->
+                            showLog("queryAccessCode[$index] is access code: $accessCode\n")
+                        }
+                }
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("queryAccessCode exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun addAccessCode() {
+        val isEnabled = true
+        val name = "Tom"
+        val code = "1234"
+        val index = 1
+        val scheduleType: AccessCodeScheduleType = AccessCodeScheduleType.All
+
+        lockAccessCodeUseCase.addAccessCode(index, isEnabled, name, code, scheduleType)
+            .map { result ->
+                showLog("addAccessCode index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nresult= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("addAccessCode exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun editAccessCode() {
+        val isEnabled = true
+        val name = "Tom"
+        val code = "2345"
+        val index = 1
+        val scheduleType: AccessCodeScheduleType = AccessCodeScheduleType.SingleEntry
+
+        lockAccessCodeUseCase.editAccessCode(index, isEnabled, name, code, scheduleType)
+            .map { result ->
+                showLog("editAccessCode:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nresult= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("editAccessCode exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun deleteAccessCode(index: Int) {
+        lockAccessCodeUseCase.deleteAccessCode(index)
+            .map { result ->
+                showLog("deleteAccessCode[$index] \nresult= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("deleteAccessCode exception $e \n") }
+            .launchIn(viewModelScope)
+    }
 
     private fun disconnect() {
         statefulConnection.disconnect()
@@ -794,6 +894,11 @@ object TaskCode {
     const val AddOneTimeToken = 20
     const val EditToken = 21
     const val DeleteToken = 22
+    const val GetAccessCodeArray = 23
+    const val QueryAccessCode = 24
+    const val AddAccessCode = 25
+    const val EditAccessCode = 26
+    const val DeleteAccessCode = 27
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val Disconnect = 99
