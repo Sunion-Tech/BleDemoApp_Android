@@ -32,7 +32,8 @@ class HomeViewModel @Inject constructor(
     private val lockConfigD4UseCase: LockConfigD4UseCase,
     private val lockUtilityUseCase: LockUtilityUseCase,
     private val lockTokenUseCase: LockTokenUseCase,
-    private val lockAccessCodeUseCase: LockAccessCodeUseCase
+    private val lockAccessCodeUseCase: LockAccessCodeUseCase,
+    private val lockEventLogUseCase: LockEventLogUseCase
 ): ViewModel(){
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
@@ -221,6 +222,18 @@ class HomeViewModel @Inject constructor(
             // Delete AccessCode
             TaskCode.DeleteAccessCode -> {
                 deleteAccessCode(1)
+            }
+            // Get Event Quantity
+            TaskCode.GetEventQuantity -> {
+                getEventQuantity()
+            }
+            // Get Event
+            TaskCode.GetEvent -> {
+                getEvent()
+            }
+            // Delete Event
+            TaskCode.DeleteEvent -> {
+                deleteEvent(1)
             }
             // Disconnect
             TaskCode.Disconnect -> {
@@ -805,6 +818,47 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    private fun getEventQuantity(){
+        lockEventLogUseCase.getEventQuantity()
+            .map { result ->
+                showLog("getEventQuantity \nresult= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("getEventQuantity exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun getEvent(){
+        lockEventLogUseCase.getEventQuantity()
+            .map { result ->
+                for(index in 0 until result){
+                    lockEventLogUseCase.getEvent(index)
+                        .collect{ eventLog ->
+                            showLog("getEvent index[$index] \neventLog: $eventLog\n")
+                        }
+                }
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("getEvent exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
+    private fun deleteEvent(index: Int){
+        lockEventLogUseCase.deleteEvent(index)
+            .map { result ->
+                showLog("deleteEvent index[$index] \nresult= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("deleteEvent exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
     private fun disconnect() {
         statefulConnection.disconnect()
         _bleConnectionStateListener?.cancel()
@@ -899,6 +953,9 @@ object TaskCode {
     const val AddAccessCode = 25
     const val EditAccessCode = 26
     const val DeleteAccessCode = 27
+    const val GetEventQuantity = 28
+    const val GetEvent = 29
+    const val DeleteEvent = 30
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val Disconnect = 99
