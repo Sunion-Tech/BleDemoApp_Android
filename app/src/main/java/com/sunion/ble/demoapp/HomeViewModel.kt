@@ -6,6 +6,7 @@ import com.sunion.core.ble.usecase.LockQRCodeUseCase
 import com.sunion.core.ble.ReactiveStatefulConnection
 import com.sunion.core.ble.usecase.LockNameUseCase
 import com.sunion.core.ble.entity.*
+import com.sunion.core.ble.exception.LockStatusException
 import com.sunion.core.ble.unless
 import com.sunion.core.ble.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,7 +34,9 @@ class HomeViewModel @Inject constructor(
     private val lockUtilityUseCase: LockUtilityUseCase,
     private val lockTokenUseCase: LockTokenUseCase,
     private val lockAccessCodeUseCase: LockAccessCodeUseCase,
-    private val lockEventLogUseCase: LockEventLogUseCase
+    private val lockEventLogUseCase: LockEventLogUseCase,
+    private val deviceStatusA2UseCase: DeviceStatusA2UseCase,
+    private val lockConfigA0UseCase: LockConfigA0UseCase,
 ): ViewModel(){
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
@@ -139,6 +142,10 @@ class HomeViewModel @Inject constructor(
             TaskCode.ToggleLockState -> {
                 toggleLockState()
             }
+            // Toggle security bolt
+            TaskCode.ToggleSecurityBolt -> {
+                toggleSecurityBolt()
+            }
             // Toggle key press beep
             TaskCode.ToggleKeyPressBeep -> {
                 toggleKeyPressBeep()
@@ -153,11 +160,27 @@ class HomeViewModel @Inject constructor(
             }
             // Toggle auto lock
             TaskCode.ToggleAutoLock -> {
-                toggleAutoLock(3)
+                toggleAutoLock(6)
             }
             // Set lock location
             TaskCode.SetLockLocation -> {
                 setLockLocation(25.03369, 121.564128)
+            }
+            // Toggle virtual code
+            TaskCode.ToggleVirtualCode -> {
+                toggleVirtualCode()
+            }
+            // Toggle twoFA
+            TaskCode.ToggleTwoFA -> {
+                toggleTwoFA()
+            }
+            // Toggle operating sound
+            TaskCode.ToggleOperatingSound -> {
+                toggleOperatingSound()
+            }
+            // Toggle show fast track mode
+            TaskCode.ToggleShowFastTrackMode -> {
+                toggleShowFastTrackMode()
             }
             // Determine lock direction
             TaskCode.DetermineLockDirection -> {
@@ -282,13 +305,26 @@ class HomeViewModel @Inject constructor(
                                             deviceStatus.batteryState,
                                             deviceStatus.timestamp
                                         )
+                                        showLog("Incoming DeviceStatusD6 status arrived.")
+                                    }
+                                    is DeviceStatus.DeviceStatusA2 -> {
+                                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                                            deviceStatus.direction,
+                                            deviceStatus.vacationMode,
+                                            deviceStatus.deadBolt,
+                                            deviceStatus.doorState,
+                                            deviceStatus.lockState,
+                                            deviceStatus.securityBolt,
+                                            deviceStatus.battery,
+                                            deviceStatus.batteryState
+                                        )
+                                        showLog("Incoming DeviceStatusA2 status arrived.")
                                     }
                                     else -> { _currentDeviceStatus = DeviceStatus.UNKNOWN }
                                 }
-                                showLog("Incoming device status arrived.")
                                 updateCurrentDeviceStatus()
                             }
-                            .catch { e -> showLog("Incoming DeviceStatusD6 exception $e \n") }
+                            .catch { e -> showLog("Incoming DeviceStatus exception $e \n") }
                             .flowOn(Dispatchers.IO)
                             .launchIn(viewModelScope)
                     }
@@ -382,6 +418,27 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getDeviceStatusD6 exception $e \n") }
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.DeviceStatusA2 -> {
+                deviceStatusA2UseCase()
+                    .map { deviceStatus ->
+                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                            deviceStatus.direction,
+                            deviceStatus.vacationMode,
+                            deviceStatus.deadBolt,
+                            deviceStatus.doorState,
+                            deviceStatus.lockState,
+                            deviceStatus.securityBolt,
+                            deviceStatus.battery,
+                            deviceStatus.batteryState
+                        )
+                        updateCurrentDeviceStatus()
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("getDeviceStatusA2 exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
             else -> { showLog("Unknown device status.\n") }
         }
     }
@@ -420,6 +477,82 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("toggleLockState exception $e \n") }
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.DeviceStatusA2 -> {
+                val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.DeviceStatusA2
+                if (deviceStatusA2.direction == BleV2Lock.Direction.UNKNOWN.value) {
+                    showLog("Lock direction is not determined. Please set lock direction before toggle lock state.\n")
+                    return
+                }
+                val state: Int = when (deviceStatusA2.lockState) {
+                    BleV2Lock.LockState.LOCKED.value -> { BleV2Lock.LockState.UNLOCKED.value }
+                    BleV2Lock.LockState.UNLOCKED.value -> { BleV2Lock.LockState.LOCKED.value }
+                    else -> {
+                        showLog("Unknown lock state.\n")
+                        return
+                    }
+                }
+                deviceStatusA2UseCase.setLockState(state)
+                    .map { deviceStatus ->
+                        showLog("Set LockState to $state")
+                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                            deviceStatus.direction,
+                            deviceStatus.vacationMode,
+                            deviceStatus.deadBolt,
+                            deviceStatus.doorState,
+                            deviceStatus.lockState,
+                            deviceStatus.securityBolt,
+                            deviceStatus.battery,
+                            deviceStatus.batteryState
+                        )
+                        updateCurrentDeviceStatus()
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleLockState exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
+            else -> { showLog("Unknown device status.\n") }
+        }
+    }
+
+    private fun toggleSecurityBolt() {
+        when (_currentDeviceStatus) {
+            is DeviceStatus.DeviceStatusA2 -> {
+                val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.DeviceStatusA2
+                if (deviceStatusA2.securityBolt == BleV2Lock.SecurityBolt.NOT_SUPPORT.value) {
+                    showLog("Lock securityBolt is not support.\n")
+                    return
+                }
+                val state: Int = when (deviceStatusA2.securityBolt) {
+                    BleV2Lock.SecurityBolt.PROTRUDE.value -> { BleV2Lock.SecurityBolt.NOT_PROTRUDE.value }
+                    BleV2Lock.SecurityBolt.NOT_PROTRUDE.value -> { BleV2Lock.SecurityBolt.PROTRUDE.value }
+                    else -> {
+                        showLog("Unknown security bolt.\n")
+                        return
+                    }
+                }
+                deviceStatusA2UseCase.setSecurityBolt(state)
+                    .map { deviceStatus ->
+                        showLog("Set security bolt to $state")
+                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                            deviceStatus.direction,
+                            deviceStatus.vacationMode,
+                            deviceStatus.deadBolt,
+                            deviceStatus.doorState,
+                            deviceStatus.lockState,
+                            deviceStatus.securityBolt,
+                            deviceStatus.battery,
+                            deviceStatus.batteryState
+                        )
+                        updateCurrentDeviceStatus()
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleSecurityBolt exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
             else -> { showLog("Unknown device status.\n") }
         }
     }
@@ -429,7 +562,18 @@ class HomeViewModel @Inject constructor(
             is DeviceStatus.DeviceStatusD6 -> {
                 lockConfigD4UseCase.query()
                     .map { lockConfig ->
-                        showLog("getLockConfig: $lockConfig \n")
+                        showLog("getLockConfigD4: $lockConfig \n")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("getLockConfig exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        showLog("getLockConfigA0: $lockConfig \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -461,6 +605,89 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("toggleKeyPressBeep exception $e \n") }
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        if (lockConfig.soundType != BleV2Lock.SoundType.NOT_SUPPORT.value) {
+                            lockConfigA0UseCase.setSoundValue(lockConfig.soundType)
+                                .map { result ->
+                                    showLog("Toggle sound value at type ${lockConfig.soundType}, result = $result \n")
+                                }
+                                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                                .flowOn(Dispatchers.IO)
+                                .catch { e -> showLog("toggleKeyPressBeep exception $e \n") }
+                                .launchIn(viewModelScope)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleKeyPressBeep exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
+            else -> { showLog("Unknown device status.\n") }
+        }
+    }
+
+    private fun toggleVirtualCode() {
+        when (_currentDeviceStatus) {
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        if (lockConfig.virtualCode != BleV2Lock.VirtualCode.NOT_SUPPORT.value) {
+                            val isVirtualCodeOn = lockConfig.virtualCode == BleV2Lock.VirtualCode.CLOSE.value
+                            lockConfigA0UseCase.setVirtualCode(isVirtualCodeOn)
+                                .map { result ->
+                                    showLog("Set guiding code to ${isVirtualCodeOn}, result = $result \n")
+                                }
+                                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                                .flowOn(Dispatchers.IO)
+                                .catch { e -> showLog("toggleVirtualCode exception $e \n") }
+                                .launchIn(viewModelScope)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleVirtualCode exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
+            else -> { showLog("Unknown device status.\n") }
+        }
+    }
+
+    private fun toggleTwoFA() {
+        when (_currentDeviceStatus) {
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        if (lockConfig.twoFA != BleV2Lock.TwoFA.NOT_SUPPORT.value) {
+                            val isTwoFAOn = lockConfig.twoFA == BleV2Lock.TwoFA.CLOSE.value
+                            lockConfigA0UseCase.setTwoFA(isTwoFAOn)
+                                .map { result ->
+                                    showLog("Set twoFA to ${isTwoFAOn}, result = $result \n")
+                                }
+                                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                                .flowOn(Dispatchers.IO)
+                                .catch { e -> showLog("toggleTwoFA exception $e \n") }
+                                .launchIn(viewModelScope)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleTwoFA exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
             else -> { showLog("Unknown device status.\n") }
         }
     }
@@ -483,6 +710,30 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        if (lockConfig.vacationMode != BleV2Lock.VacationMode.NOT_SUPPORT.value) {
+                            val isVacationModeOn = lockConfig.vacationMode == BleV2Lock.VacationMode.CLOSE.value
+                            lockConfigA0UseCase.setVacationMode(isVacationModeOn)
+                                .map { result ->
+                                    showLog("Set vacation mode to ${isVacationModeOn}, result = $result \n")
+                                }
+                                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                                .flowOn(Dispatchers.IO)
+                                .catch { e -> showLog("toggleVacationMode exception $e \n") }
+                                .launchIn(viewModelScope)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleVacationMode exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
             else -> { showLog("Unknown device status.\n") }
         }
     }
@@ -498,6 +749,30 @@ class HomeViewModel @Inject constructor(
                 lockConfigD4UseCase.setGuidingCode(isGuidingCodeOn)
                     .map { result ->
                         showLog("Set guiding code to ${isGuidingCodeOn}, result = $result \n")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleGuidingCode exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        if (lockConfig.guidingCode != BleV2Lock.GuidingCode.NOT_SUPPORT.value) {
+                            val isGuidingCodeOn = lockConfig.guidingCode == BleV2Lock.GuidingCode.CLOSE.value
+                            lockConfigA0UseCase.setGuidingCode(isGuidingCodeOn)
+                                .map { result ->
+                                    showLog("Set guiding code to ${isGuidingCodeOn}, result = $result \n")
+                                }
+                                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                                .flowOn(Dispatchers.IO)
+                                .catch { e -> showLog("toggleGuidingCode exception $e \n") }
+                                .launchIn(viewModelScope)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -530,6 +805,34 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("toggleAutoLock exception $e \n") }
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.DeviceStatusA2 -> {
+            lockConfigA0UseCase.query()
+                .map { lockConfig ->
+                    if (lockConfig.autoLock != BleV2Lock.AutoLock.NOT_SUPPORT.value) {
+                        val isAutoLock = lockConfig.autoLock == BleV2Lock.AutoLock.CLOSE.value
+                        if (autoLockTime < lockConfig.autoLockTimeUpperLimit || autoLockTime > lockConfig.autoLockTimeLowerLimit) {
+                            showLog("Set auto lock will fail because autoLockTime is not support value")
+                        }
+                        lockConfigA0UseCase.setAutoLock(isAutoLock, autoLockTime)
+                            .map { result ->
+                                showLog("Set auto lock to $isAutoLock and auto lock time to $autoLockTime, result = $result \n")
+                            }
+                            .onStart { _uiState.update { it.copy(isLoading = true) } }
+                            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                            .flowOn(Dispatchers.IO)
+                            .catch { e -> showLog("toggleAutoLock exception $e \n") }
+                            .launchIn(viewModelScope)
+                    } else {
+                        throw LockStatusException.LockFunctionNotSupportException()
+                    }
+                }
+                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                .flowOn(Dispatchers.IO)
+                .catch { e -> showLog("toggleAutoLock exception $e \n") }
+                .launchIn(viewModelScope)
+        }
+
             else -> { showLog("Unknown device status.\n") }
         }
     }
@@ -547,9 +850,80 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("setLockLocation exception $e \n") }
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.setLocation(latitude = latitude, longitude = longitude)
+                    .map { result ->
+                        showLog("Set lock location to (${latitude}, ${longitude}), result = $result \n")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("setLockLocation exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("Unknown device status.\n")
             }
+        }
+    }
+
+    private fun toggleOperatingSound() {
+        when (_currentDeviceStatus) {
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        if (lockConfig.operatingSound != BleV2Lock.OperatingSound.NOT_SUPPORT.value) {
+                            val isOperatingSoundOn = lockConfig.operatingSound == BleV2Lock.OperatingSound.CLOSE.value
+                            lockConfigA0UseCase.setOperatingSound(isOperatingSoundOn)
+                                .map { result ->
+                                    showLog("Toggle operating sound to ${isOperatingSoundOn}, result = $result \n")
+                                }
+                                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                                .flowOn(Dispatchers.IO)
+                                .catch { e -> showLog("toggleOperatingSound exception $e \n") }
+                                .launchIn(viewModelScope)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleOperatingSound exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
+            else -> { showLog("Unknown device status.\n") }
+        }
+    }
+
+    private fun toggleShowFastTrackMode() {
+        when (_currentDeviceStatus) {
+            is DeviceStatus.DeviceStatusA2 -> {
+                lockConfigA0UseCase.query()
+                    .map { lockConfig ->
+                        if (lockConfig.showFastTrackMode != BleV2Lock.ShowFastTrackMode.NOT_SUPPORT.value) {
+                            val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV2Lock.ShowFastTrackMode.CLOSE.value
+                            lockConfigA0UseCase.setShowFastTrackMode(isShowFastTrackModeOn)
+                                .map { result ->
+                                    showLog("Set show fast track mode to ${isShowFastTrackModeOn}, result = $result \n")
+                                }
+                                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                                .flowOn(Dispatchers.IO)
+                                .catch { e -> showLog("toggleShowFastTrackMode exception $e \n") }
+                                .launchIn(viewModelScope)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .catch { e -> showLog("toggleShowFastTrackMode exception $e \n") }
+                    .launchIn(viewModelScope)
+            }
+            else -> { showLog("Unknown device status.\n") }
         }
     }
 
@@ -557,14 +931,38 @@ class HomeViewModel @Inject constructor(
         showLog("Determine lock direction:")
         lockDirectionUseCase()
             .map { deviceStatus ->
-                _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
-                    deviceStatus.config,
-                    deviceStatus.lockState,
-                    deviceStatus.battery,
-                    deviceStatus.batteryState,
-                    deviceStatus.timestamp
-                )
-                updateCurrentDeviceStatus()
+                when (deviceStatus) {
+                    is DeviceStatus.DeviceStatusD6 -> {
+                        _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
+                            deviceStatus.config,
+                            deviceStatus.lockState,
+                            deviceStatus.battery,
+                            deviceStatus.batteryState,
+                            deviceStatus.timestamp
+                        )
+                        updateCurrentDeviceStatus()
+                    }
+                    is DeviceStatus.DeviceStatusA2 -> {
+                        if(deviceStatus.direction == BleV2Lock.Direction.NOT_SUPPORT.value) {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        } else {
+                            _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                                deviceStatus.direction,
+                                deviceStatus.vacationMode,
+                                deviceStatus.deadBolt,
+                                deviceStatus.doorState,
+                                deviceStatus.lockState,
+                                deviceStatus.securityBolt,
+                                deviceStatus.battery,
+                                deviceStatus.batteryState
+                            )
+                            updateCurrentDeviceStatus()
+                        }
+                    }
+                    else -> {
+                        showLog("Not support determine lock direction!!\n")
+                    }
+                }
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -637,6 +1035,10 @@ class HomeViewModel @Inject constructor(
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
                 showLog("Current status is DeviceStatusD6: ")
+                showLog("$_currentDeviceStatus \n")
+            }
+            is DeviceStatus.DeviceStatusA2 -> {
+                showLog("Current status is DeviceStatusA2: ")
                 showLog("$_currentDeviceStatus \n")
             }
             else -> {
@@ -956,6 +1358,11 @@ object TaskCode {
     const val GetEventQuantity = 28
     const val GetEvent = 29
     const val DeleteEvent = 30
+    const val ToggleSecurityBolt = 31
+    const val ToggleVirtualCode = 32
+    const val ToggleTwoFA = 33
+    const val ToggleOperatingSound = 34
+    const val ToggleShowFastTrackMode = 35
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val Disconnect = 99

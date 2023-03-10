@@ -45,7 +45,7 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
     val logList = viewModel.logList.collectAsState().value
     val taskList: Array<Pair<Int, String>> = arrayOf(
         TaskCode.Connect to "Connect",
-        TaskCode.GetDeviceStatus to "Get DeviceStatusD6",
+        TaskCode.GetDeviceStatus to "Get DeviceStatus",
         TaskCode.ToggleLockState to "Toggle lock state",
         TaskCode.GetLockTime to "Get lock time",
         TaskCode.SetLockTime to "Set lock time",
@@ -62,6 +62,11 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.ToggleGuidingCode to "Toggle guiding code",
         TaskCode.ToggleAutoLock to "Toggle auto lock",
         TaskCode.SetLockLocation to "Set lock location",
+        TaskCode.ToggleSecurityBolt to "Toggle security bolt",
+        TaskCode.ToggleVirtualCode to "Toggle virtual code",
+        TaskCode.ToggleTwoFA to "Toggle twoFA",
+        TaskCode.ToggleOperatingSound to "Toggle operating sound",
+        TaskCode.ToggleShowFastTrackMode to "Toggle show fast track mode",
         TaskCode.QueryTokenArray to "Query token array",
         TaskCode.QueryToken to "Query token",
         TaskCode.AddOneTimeToken to "Add one time token",
