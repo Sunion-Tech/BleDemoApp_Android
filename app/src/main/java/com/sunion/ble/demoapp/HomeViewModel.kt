@@ -24,7 +24,7 @@ class HomeViewModel @Inject constructor(
     private val bluetoothAvailableStateCollector: BluetoothAvailableStateCollector,
     private val statefulConnection: ReactiveStatefulConnection,
     private val lockQRCodeUseCase: LockQRCodeUseCase,
-    private val incomingDeviceStatusUseCase: IncomingDeviceStatusUseCase,
+    private val incomingSunionBleNotificationUseCase: IncomingSunionBleNotificationUseCase,
     private val deviceStatusD6UseCase: DeviceStatusD6UseCase,
     private val lockTimeUseCase: LockTimeUseCase,
     private val adminCodeUseCase: AdminCodeUseCase,
@@ -54,9 +54,11 @@ class HomeViewModel @Inject constructor(
 
     private var _bleConnectionStateListener: Job? = null
 
-    private var _bleDeviceStatusListener: Job? = null
+    private var _bleSunionBleNotificationListener: Job? = null
 
-    private var _currentDeviceStatus : DeviceStatus = DeviceStatus.UNKNOWN
+    private var _currentDeviceStatus : SunionBleNotification = DeviceStatus.UNKNOWN
+
+    private var _currentAlert : SunionBleNotification = Alert.UNKNOWN
 
     fun init() {
         Timber.d("init")
@@ -258,6 +260,10 @@ class HomeViewModel @Inject constructor(
             TaskCode.DeleteEvent -> {
                 deleteEvent(1)
             }
+            // Get Lock Supported Unlock Types
+            TaskCode.GetLockSupportedUnlockTypes -> {
+                getLockSupportedUnlockTypes()
+            }
             // Disconnect
             TaskCode.Disconnect -> {
                 disconnect()
@@ -292,39 +298,27 @@ class HomeViewModel @Inject constructor(
                     // RxBleConnection is ready.
                     EventState.READY -> {
                         // Setup incoming device status observer
-                        _bleDeviceStatusListener?.cancel()
-                        _bleDeviceStatusListener = incomingDeviceStatusUseCase()
-                            .map { deviceStatus ->
-                                Timber.d("Incoming DeviceStatus: $deviceStatus")
-                                when (deviceStatus) {
-                                    is DeviceStatus.DeviceStatusD6 -> {
-                                        _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
-                                            deviceStatus.config,
-                                            deviceStatus.lockState,
-                                            deviceStatus.battery,
-                                            deviceStatus.batteryState,
-                                            deviceStatus.timestamp
-                                        )
-                                        showLog("Incoming DeviceStatusD6 status arrived.")
+                        _bleSunionBleNotificationListener?.cancel()
+                        _bleSunionBleNotificationListener = incomingSunionBleNotificationUseCase()
+                            .map { sunionBleNotification ->
+                                Timber.d("Incoming SunionBleNotification: $sunionBleNotification")
+                                when (sunionBleNotification) {
+                                    is DeviceStatus -> {
+                                        _currentDeviceStatus = sunionBleNotification
+                                        showLog("Incoming ${sunionBleNotification::class.simpleName} arrived.")
                                     }
-                                    is DeviceStatus.DeviceStatusA2 -> {
-                                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
-                                            deviceStatus.direction,
-                                            deviceStatus.vacationMode,
-                                            deviceStatus.deadBolt,
-                                            deviceStatus.doorState,
-                                            deviceStatus.lockState,
-                                            deviceStatus.securityBolt,
-                                            deviceStatus.battery,
-                                            deviceStatus.batteryState
-                                        )
-                                        showLog("Incoming DeviceStatusA2 status arrived.")
+                                    is Alert -> {
+                                        _currentAlert = sunionBleNotification
+                                        showLog("Incoming ${sunionBleNotification::class.simpleName} arrived.")
                                     }
-                                    else -> { _currentDeviceStatus = DeviceStatus.UNKNOWN }
+                                    else -> {
+                                        _currentDeviceStatus = DeviceStatus.UNKNOWN
+                                        _currentAlert = Alert.UNKNOWN
+                                    }
                                 }
-                                updateCurrentDeviceStatus()
+                                updateCurrentDeviceStatusOrAlert(sunionBleNotification)
                             }
-                            .catch { e -> showLog("Incoming DeviceStatus exception $e \n") }
+                            .catch { e -> showLog("Incoming SunionBleNotification exception $e \n") }
                             .flowOn(Dispatchers.IO)
                             .launchIn(viewModelScope)
                     }
@@ -410,7 +404,7 @@ class HomeViewModel @Inject constructor(
                             deviceStatus.batteryState,
                             deviceStatus.timestamp
                         )
-                        updateCurrentDeviceStatus()
+                        updateCurrentDeviceStatusOrAlert(_currentDeviceStatus)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -431,7 +425,7 @@ class HomeViewModel @Inject constructor(
                             deviceStatus.battery,
                             deviceStatus.batteryState
                         )
-                        updateCurrentDeviceStatus()
+                        updateCurrentDeviceStatusOrAlert(_currentDeviceStatus)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -469,7 +463,7 @@ class HomeViewModel @Inject constructor(
                             deviceStatus.batteryState,
                             deviceStatus.timestamp
                         )
-                        updateCurrentDeviceStatus()
+                        updateCurrentDeviceStatusOrAlert(_currentDeviceStatus)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -504,7 +498,7 @@ class HomeViewModel @Inject constructor(
                             deviceStatus.battery,
                             deviceStatus.batteryState
                         )
-                        updateCurrentDeviceStatus()
+                        updateCurrentDeviceStatusOrAlert(_currentDeviceStatus)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -545,7 +539,7 @@ class HomeViewModel @Inject constructor(
                             deviceStatus.battery,
                             deviceStatus.batteryState
                         )
-                        updateCurrentDeviceStatus()
+                        updateCurrentDeviceStatusOrAlert(_currentDeviceStatus)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -940,7 +934,7 @@ class HomeViewModel @Inject constructor(
                             deviceStatus.batteryState,
                             deviceStatus.timestamp
                         )
-                        updateCurrentDeviceStatus()
+                        updateCurrentDeviceStatusOrAlert(_currentDeviceStatus)
                     }
                     is DeviceStatus.DeviceStatusA2 -> {
                         if(deviceStatus.direction == BleV2Lock.Direction.NOT_SUPPORT.value) {
@@ -956,7 +950,7 @@ class HomeViewModel @Inject constructor(
                                 deviceStatus.battery,
                                 deviceStatus.batteryState
                             )
-                            updateCurrentDeviceStatus()
+                            updateCurrentDeviceStatusOrAlert(_currentDeviceStatus)
                         }
                     }
                     else -> {
@@ -1031,18 +1025,16 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun updateCurrentDeviceStatus() {
-        when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
-                showLog("Current status is DeviceStatusD6: ")
-                showLog("$_currentDeviceStatus \n")
+    private fun updateCurrentDeviceStatusOrAlert(deviceStatusOrAlert: SunionBleNotification) {
+        when (deviceStatusOrAlert) {
+            is DeviceStatus -> {
+                showLog("Current is ${deviceStatusOrAlert::class.simpleName}: ${_currentDeviceStatus}\n")
             }
-            is DeviceStatus.DeviceStatusA2 -> {
-                showLog("Current status is DeviceStatusA2: ")
-                showLog("$_currentDeviceStatus \n")
+            is Alert -> {
+                showLog("Current is ${deviceStatusOrAlert::class.simpleName}: ${_currentAlert}\n")
             }
             else -> {
-                showLog("Unknown device status!!\n")
+                showLog("Unknown device status or alert!!\n")
             }
         }
     }
@@ -1261,11 +1253,24 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    private fun getLockSupportedUnlockTypes(){
+        lockUtilityUseCase.getLockSupportedUnlockTypes()
+            .map { result ->
+                showLog("getLockSupportedUnlockTypes result= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
+            .launchIn(viewModelScope)
+    }
+
     private fun disconnect() {
         statefulConnection.disconnect()
         _bleConnectionStateListener?.cancel()
-        _bleDeviceStatusListener?.cancel()
+        _bleSunionBleNotificationListener?.cancel()
         _currentDeviceStatus = DeviceStatus.UNKNOWN
+        _currentAlert = Alert.UNKNOWN
         _uiState.update { it.copy(isLoading = false, isConnectedWithLock = false) }
         showLog("Disconnected \n")
     }
@@ -1363,6 +1368,7 @@ object TaskCode {
     const val ToggleTwoFA = 33
     const val ToggleOperatingSound = 34
     const val ToggleShowFastTrackMode = 35
+    const val GetLockSupportedUnlockTypes = 36
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val Disconnect = 99

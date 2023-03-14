@@ -80,6 +80,7 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.GetEventQuantity to "Get event quantity",
         TaskCode.GetEvent to "Get event",
         TaskCode.DeleteEvent to "Delete event",
+        TaskCode.GetLockSupportedUnlockTypes to "Get lock supported unlock types",
         TaskCode.GetFwVersion to "Get firmware version",
         TaskCode.FactoryReset to "Factory reset",
         TaskCode.Disconnect to "Disconnect"
