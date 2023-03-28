@@ -1263,7 +1263,7 @@ class HomeViewModel @Inject constructor(
                             .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
                             .filter { index -> index != -1 }
                         indexIterable.forEach { index ->
-                            lockAccessUseCase.queryAccessCode(index)
+                            lockAccessCodeUseCase.queryAccessCode(index)
                                 .collect { accessCode ->
                                     showLog("queryAccessCode[$index] is access code: $accessCode\n")
                                 }
