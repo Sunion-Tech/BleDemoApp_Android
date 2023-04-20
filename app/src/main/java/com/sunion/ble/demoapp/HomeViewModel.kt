@@ -424,9 +424,13 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             showLog("Connecting to ${_lockConnectionInfo!!.macAddress!!}...")
             statefulConnection.establishConnection(
-                macAddress = _lockConnectionInfo!!.macAddress!!,
-                keyOne = _lockConnectionInfo!!.keyOne!!,
                 oneTimeToken = _lockConnectionInfo!!.oneTimeToken!!,
+                keyOne = _lockConnectionInfo!!.keyOne!!,
+                macAddress = _lockConnectionInfo!!.macAddress!!,
+                model = _lockConnectionInfo!!.model!!,
+                serialNumber = _lockConnectionInfo!!.serialNumber,
+                isFrom = _lockConnectionInfo!!.isFrom,
+                lockName = _lockConnectionInfo!!.lockName,
                 permanentToken = _lockConnectionInfo!!.permanentToken,
                 isSilentlyFail = false
             )
@@ -2143,6 +2147,7 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
 
+            Timber.d("qrCodeContent: $qrCodeContent")
             _lockConnectionInfo = LockConnectionInfo.from(qrCodeContent)
             Timber.d("_lockConnectionInfo: $_lockConnectionInfo")
             showLog("Lock connection information:", true)
