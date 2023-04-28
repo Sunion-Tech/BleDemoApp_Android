@@ -438,45 +438,46 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun getLockTime() {
-        lockTimeUseCase.getTime()
+        flow { emit(lockTimeUseCase.getTime()) }
+            .catch { e -> showLog("getLockTime exception $e \n") }
             .map { timeStamp ->
                 showLog("Lock time = ${timeStamp}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("getLockTime exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun setLockTime() {
-        lockTimeUseCase.setTime(Instant.now().atZone(ZoneId.systemDefault()).toEpochSecond())
+        flow { emit(lockTimeUseCase.setTime(Instant.now().atZone(ZoneId.systemDefault()).toEpochSecond())) }
+            .catch { e -> showLog("setLockTime exception $e \n") }
             .map { result ->
                 showLog("Set lock time to now, result = ${result}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("setLockTime exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun setLockTimeZone() {
-        lockTimeUseCase.setTimeZone(ZoneId.systemDefault().id)
+        flow { emit(lockTimeUseCase.setTimeZone(ZoneId.systemDefault().id)) }
+            .catch { e -> showLog("setLockTimeZone exception $e \n") }
             .map { result ->
                 showLog("Set lock timezone to ${ZoneId.systemDefault().id}, result = ${result}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("setLockTimeZone exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun getDeviceStatus() {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
-                deviceStatusD6UseCase()
+                flow { emit(deviceStatusD6UseCase()) }
+                    .catch { e -> showLog("getDeviceStatusD6 exception $e \n") }
                     .map { deviceStatus ->
                         _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
                             deviceStatus.config,
@@ -490,11 +491,11 @@ class HomeViewModel @Inject constructor(
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getDeviceStatusD6 exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                deviceStatusA2UseCase()
+                flow { emit(deviceStatusA2UseCase()) }
+                    .catch { e -> showLog("getDeviceStatusA2 exception $e \n") }
                     .map { deviceStatus ->
                         _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
                             deviceStatus.direction,
@@ -511,10 +512,9 @@ class HomeViewModel @Inject constructor(
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getDeviceStatusA2 exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support getDeviceStatus.\n") }
         }
     }
 
@@ -534,7 +534,8 @@ class HomeViewModel @Inject constructor(
                     showLog("Lock direction is not determined. Please set lock direction before toggle lock state.\n")
                     return
                 }
-                deviceStatusD6UseCase.setLockState(desiredState)
+                flow { emit(deviceStatusD6UseCase.setLockState(desiredState)) }
+                    .catch { e -> showLog("toggleLockState exception $e \n") }
                     .map { deviceStatus ->
                         showLog("Set LockState to ${desiredState}:")
                         _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
@@ -549,7 +550,6 @@ class HomeViewModel @Inject constructor(
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleLockState exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
@@ -566,7 +566,8 @@ class HomeViewModel @Inject constructor(
                         return
                     }
                 }
-                deviceStatusA2UseCase.setLockState(state)
+                flow { emit(deviceStatusA2UseCase.setLockState(state)) }
+                    .catch { e -> showLog("toggleLockState exception $e \n") }
                     .map { deviceStatus ->
                         showLog("Set LockState to $state")
                         _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
@@ -584,10 +585,9 @@ class HomeViewModel @Inject constructor(
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleLockState exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleLockState.\n") }
         }
     }
 
@@ -607,7 +607,8 @@ class HomeViewModel @Inject constructor(
                         return
                     }
                 }
-                deviceStatusA2UseCase.setSecurityBolt(state)
+                flow { emit(deviceStatusA2UseCase.setSecurityBolt(state)) }
+                    .catch { e -> showLog("toggleSecurityBolt exception $e \n") }
                     .map { deviceStatus ->
                         showLog("Set security bolt to $state")
                         _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
@@ -625,44 +626,43 @@ class HomeViewModel @Inject constructor(
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleSecurityBolt exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleSecurityBolt.\n") }
         }
     }
 
     private fun getLockConfig() {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
-                lockConfigD4UseCase.query()
+                flow { emit(lockConfigD4UseCase.query()) }
+                    .catch { e -> showLog("getLockConfig exception $e \n") }
                     .map { lockConfig ->
                         showLog("getLockConfigD4: $lockConfig \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockConfig exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("getLockConfig exception $e \n") }
                     .map { lockConfig ->
                         showLog("getLockConfigA0: $lockConfig \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockConfig exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status.\n")
+                showLog("Not support getLockConfig.\n")
             }
         }
     }
 
-    private fun toggleKeyPressBeep() {
+    private fun toggleKeyPressBeep(soundValue:Int = 0) {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
                 val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.DeviceStatusD6
@@ -670,100 +670,77 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                lockConfigD4UseCase.setKeyPressBeep(isSoundOn)
+                flow { emit(lockConfigD4UseCase.setKeyPressBeep(isSoundOn)) }
+                    .catch { e -> showLog("toggleKeyPressBeep exception $e \n") }
                     .map { result ->
                         showLog("Set key press beep to ${isSoundOn}, result = $result \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleKeyPressBeep exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("lockConfigA0UseCase.query() exception $e \n") }
                     .map { lockConfig ->
-                        if (lockConfig.soundType != BleV2Lock.SoundType.NOT_SUPPORT.value) {
-                            lockConfigA0UseCase.setSoundValue(lockConfig.soundType)
-                                .map { result ->
-                                    showLog("Toggle sound value at type ${lockConfig.soundType}, result = $result \n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("toggleKeyPressBeep exception $e \n") }
-                                .launchIn(viewModelScope)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                        val value = when (lockConfig.soundType) {
+                            0x01 -> if(lockConfig.soundValue == 100) 0 else 100
+                            0x02 -> if(lockConfig.soundValue == 100) 50 else if(lockConfig.soundValue == 50) 0 else 100
+                            else -> soundValue
                         }
+                        val result = lockConfigA0UseCase.setSoundValue(value)
+                        showLog("Toggle sound value at type ${lockConfig.soundType}, result = $result \n")
+                        result
                     }
+                    .catch { e -> showLog("setSoundValue exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleKeyPressBeep exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support device status.\n") }
         }
     }
 
     private fun toggleVirtualCode() {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("toggleVirtualCode exception $e \n") }
                     .map { lockConfig ->
-                        if (lockConfig.virtualCode != BleV2Lock.VirtualCode.NOT_SUPPORT.value) {
-                            val isVirtualCodeOn = lockConfig.virtualCode == BleV2Lock.VirtualCode.CLOSE.value
-                            lockConfigA0UseCase.setVirtualCode(isVirtualCodeOn)
-                                .map { result ->
-                                    showLog("Set guiding code to ${isVirtualCodeOn}, result = $result \n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("toggleVirtualCode exception $e \n") }
-                                .launchIn(viewModelScope)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                        val isVirtualCodeOn = lockConfig.virtualCode == BleV2Lock.VirtualCode.CLOSE.value
+                        val result = lockConfigA0UseCase.setVirtualCode(isVirtualCodeOn)
+                        showLog("Set guiding code to ${isVirtualCodeOn}, result = $result \n")
+                        result
                     }
+                    .catch { e -> showLog("setVirtualCode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleVirtualCode exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleVirtualCode.\n") }
         }
     }
 
     private fun toggleTwoFA() {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("toggleTwoFA exception $e \n") }
                     .map { lockConfig ->
-                        if (lockConfig.twoFA != BleV2Lock.TwoFA.NOT_SUPPORT.value) {
-                            val isTwoFAOn = lockConfig.twoFA == BleV2Lock.TwoFA.CLOSE.value
-                            lockConfigA0UseCase.setTwoFA(isTwoFAOn)
-                                .map { result ->
-                                    showLog("Set twoFA to ${isTwoFAOn}, result = $result \n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("toggleTwoFA exception $e \n") }
-                                .launchIn(viewModelScope)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                        val isTwoFAOn = lockConfig.twoFA == BleV2Lock.TwoFA.CLOSE.value
+                        val result = lockConfigA0UseCase.setTwoFA(isTwoFAOn)
+                        showLog("Set twoFA to ${isTwoFAOn}, result = $result \n")
                     }
+                    .catch { e -> showLog("toggleTwoFA exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleTwoFA exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleTwoFA.\n") }
         }
     }
 
@@ -775,41 +752,32 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                lockConfigD4UseCase.setVactionMode(isVacationModeOn)
+                flow { emit(lockConfigD4UseCase.setVactionMode(isVacationModeOn)) }
+                    .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .map { result ->
                         showLog("Set vacation mode to ${isVacationModeOn}, result = $result \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .map { lockConfig ->
-                        if (lockConfig.vacationMode != BleV2Lock.VacationMode.NOT_SUPPORT.value) {
-                            val isVacationModeOn = lockConfig.vacationMode == BleV2Lock.VacationMode.CLOSE.value
-                            lockConfigA0UseCase.setVacationMode(isVacationModeOn)
-                                .map { result ->
-                                    showLog("Set vacation mode to ${isVacationModeOn}, result = $result \n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("toggleVacationMode exception $e \n") }
-                                .launchIn(viewModelScope)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                        val isVacationModeOn = lockConfig.vacationMode == BleV2Lock.VacationMode.CLOSE.value
+                        val result = lockConfigA0UseCase.setVacationMode(isVacationModeOn)
+                        showLog("Set vacation mode to ${isVacationModeOn}, result = $result \n")
+                        result
                     }
+                    .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleVacationMode.\n") }
         }
     }
 
@@ -821,41 +789,32 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                lockConfigD4UseCase.setGuidingCode(isGuidingCodeOn)
+                flow { emit(lockConfigD4UseCase.setGuidingCode(isGuidingCodeOn)) }
+                    .catch { e -> showLog("toggleGuidingCode exception $e \n") }
                     .map { result ->
                         showLog("Set guiding code to ${isGuidingCodeOn}, result = $result \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleGuidingCode exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("toggleGuidingCode exception $e \n") }
                     .map { lockConfig ->
-                        if (lockConfig.guidingCode != BleV2Lock.GuidingCode.NOT_SUPPORT.value) {
-                            val isGuidingCodeOn = lockConfig.guidingCode == BleV2Lock.GuidingCode.CLOSE.value
-                            lockConfigA0UseCase.setGuidingCode(isGuidingCodeOn)
-                                .map { result ->
-                                    showLog("Set guiding code to ${isGuidingCodeOn}, result = $result \n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("toggleGuidingCode exception $e \n") }
-                                .launchIn(viewModelScope)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                        val isGuidingCodeOn = lockConfig.guidingCode == BleV2Lock.GuidingCode.CLOSE.value
+                        val result = lockConfigA0UseCase.setGuidingCode(isGuidingCodeOn)
+                        showLog("Set guiding code to ${isGuidingCodeOn}, result = $result \n")
+                        result
                     }
+                    .catch { e -> showLog("toggleGuidingCode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleGuidingCode exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleGuidingCode.\n") }
         }
     }
 
@@ -867,7 +826,8 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                lockConfigD4UseCase.setAutoLock(isAutoLock, autoLockTime)
+                flow { emit(lockConfigD4UseCase.setAutoLock(isAutoLock, autoLockTime)) }
+                    .catch { e -> showLog("toggleAutoLock exception $e \n") }
                     .map { result ->
                         if (isAutoLock)
                             showLog("Set auto lock to ${isAutoLock} and auto lock time to $autoLockTime, result = $result \n")
@@ -877,67 +837,54 @@ class HomeViewModel @Inject constructor(
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleAutoLock exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-            lockConfigA0UseCase.query()
-                .map { lockConfig ->
-                    if (lockConfig.autoLock != BleV2Lock.AutoLock.NOT_SUPPORT.value) {
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("toggleAutoLock exception $e \n") }
+                    .map { lockConfig ->
                         val isAutoLock = lockConfig.autoLock == BleV2Lock.AutoLock.CLOSE.value
-                        if (autoLockTime < lockConfig.autoLockTimeUpperLimit || autoLockTime > lockConfig.autoLockTimeLowerLimit) {
-                            showLog("Set auto lock will fail because autoLockTime is not support value")
-                        }
-                        lockConfigA0UseCase.setAutoLock(isAutoLock, autoLockTime)
-                            .map { result ->
-                                showLog("Set auto lock to $isAutoLock and auto lock time to $autoLockTime, result = $result \n")
-                            }
-                            .onStart { _uiState.update { it.copy(isLoading = true) } }
-                            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                            .flowOn(Dispatchers.IO)
-                            .catch { e -> showLog("toggleAutoLock exception $e \n") }
-                            .launchIn(viewModelScope)
-                    } else {
-                        throw LockStatusException.LockFunctionNotSupportException()
+                        val result = lockConfigA0UseCase.setAutoLock(isAutoLock, autoLockTime)
+                        showLog("Set auto lock to $isAutoLock and auto lock time to $autoLockTime, result = $result \n")
+                        result
                     }
-                }
-                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                .flowOn(Dispatchers.IO)
-                .catch { e -> showLog("toggleAutoLock exception $e \n") }
-                .launchIn(viewModelScope)
+                    .catch { e -> showLog("toggleAutoLock exception $e \n") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
         }
 
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleAutoLock.\n") }
         }
     }
 
     private fun setLockLocation(latitude: Double, longitude: Double) {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
-                lockConfigD4UseCase.setLocation(latitude = latitude, longitude = longitude)
+                flow { emit(lockConfigD4UseCase.setLocation(latitude = latitude, longitude = longitude)) }
+                    .catch { e -> showLog("setLockLocation exception $e \n") }
                     .map { result ->
                         showLog("Set lock location to (${latitude}, ${longitude}), result = $result \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("setLockLocation exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.setLocation(latitude = latitude, longitude = longitude)
+                flow { emit(lockConfigA0UseCase.setLocation(latitude = latitude, longitude = longitude)) }
+                    .catch { e -> showLog("setLockLocation exception $e \n") }
                     .map { result ->
                         showLog("Set lock location to (${latitude}, ${longitude}), result = $result \n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("setLockLocation exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status.\n")
+                showLog("Not support setLockLocation.\n")
             }
         }
     }
@@ -945,66 +892,48 @@ class HomeViewModel @Inject constructor(
     private fun toggleOperatingSound() {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("toggleOperatingSound exception $e \n") }
                     .map { lockConfig ->
-                        if (lockConfig.operatingSound != BleV2Lock.OperatingSound.NOT_SUPPORT.value) {
-                            val isOperatingSoundOn = lockConfig.operatingSound == BleV2Lock.OperatingSound.CLOSE.value
-                            lockConfigA0UseCase.setOperatingSound(isOperatingSoundOn)
-                                .map { result ->
-                                    showLog("Toggle operating sound to ${isOperatingSoundOn}, result = $result \n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("toggleOperatingSound exception $e \n") }
-                                .launchIn(viewModelScope)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                        val isOperatingSoundOn = lockConfig.operatingSound == BleV2Lock.OperatingSound.CLOSE.value
+                        val result = lockConfigA0UseCase.setOperatingSound(isOperatingSoundOn)
+                        showLog("Toggle operating sound to ${isOperatingSoundOn}, result = $result \n")
+                        result
                     }
+                    .catch { e -> showLog("toggleOperatingSound exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleOperatingSound exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleOperatingSound.\n") }
         }
     }
 
     private fun toggleShowFastTrackMode() {
         when (_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockConfigA0UseCase.query()
+                flow { emit(lockConfigA0UseCase.query()) }
+                    .catch { e -> showLog("toggleShowFastTrackMode exception $e \n") }
                     .map { lockConfig ->
-                        if (lockConfig.showFastTrackMode != BleV2Lock.ShowFastTrackMode.NOT_SUPPORT.value) {
-                            val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV2Lock.ShowFastTrackMode.CLOSE.value
-                            lockConfigA0UseCase.setShowFastTrackMode(isShowFastTrackModeOn)
-                                .map { result ->
-                                    showLog("Set show fast track mode to ${isShowFastTrackModeOn}, result = $result \n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("toggleShowFastTrackMode exception $e \n") }
-                                .launchIn(viewModelScope)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                        val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV2Lock.ShowFastTrackMode.CLOSE.value
+                        val result = lockConfigA0UseCase.setShowFastTrackMode(isShowFastTrackModeOn)
+                        showLog("Set show fast track mode to ${isShowFastTrackModeOn}, result = $result \n")
                     }
+                    .catch { e -> showLog("toggleShowFastTrackMode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("toggleShowFastTrackMode exception $e \n") }
                     .launchIn(viewModelScope)
             }
-            else -> { showLog("Unknown device status.\n") }
+            else -> { showLog("Not support toggleShowFastTrackMode.\n") }
         }
     }
 
     private fun determineLockDirection() {
         showLog("Determine lock direction:")
-        lockDirectionUseCase()
+        flow { emit(lockDirectionUseCase()) }
+            .catch { e -> showLog("determineLockDirection exception $e \n") }
             .map { deviceStatus ->
                 when (deviceStatus) {
                     is DeviceStatus.DeviceStatusD6 -> {
@@ -1042,67 +971,66 @@ class HomeViewModel @Inject constructor(
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("determineLockDirection exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun getLockName() {
-        lockNameUseCase.getName()
+        flow { emit(lockNameUseCase.getName()) }
+            .catch { e -> showLog("getLockName exception $e \n") }
             .map { name ->
                 showLog("Lock name = ${name}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("getLockName exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun setLockName(name: String) {
-        lockNameUseCase.setName(name)
+        flow { emit(lockNameUseCase.setName(name)) }
+            .catch { e -> showLog("setLockName exception $e \n") }
             .map { result ->
                 showLog("Set lock name to \"$name\", result = ${result}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("setLockName exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun isAdminCodeExists() {
-        adminCodeUseCase.isAdminCodeExists()
+        flow { emit(adminCodeUseCase.isAdminCodeExists()) }
+            .catch { e -> showLog("isAdminCodeExists exception $e \n") }
             .map { result ->
                 showLog("Is Admin code exists = ${result}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("isAdminCodeExists exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun createAdminCode(code: String) {
-        adminCodeUseCase.createAdminCode(code)
+        flow { emit(adminCodeUseCase.createAdminCode(code)) }
+            .catch { e -> showLog("createAdminCode exception $e \n") }
             .map { result ->
                 showLog("Create Admin code \"$code\", result = ${result}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("createAdminCode exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun updateAdminCode(oldCode: String, newCode: String) {
-        adminCodeUseCase.updateAdminCode(oldCode, newCode)
+        flow { emit(adminCodeUseCase.updateAdminCode(oldCode, newCode)) }
+            .catch { e -> showLog("updateAdminCode exception $e \n") }
             .map { result ->
                 showLog("Update Admin code from \"$oldCode\" to \"$newCode\", result = ${result}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("updateAdminCode exception $e \n") }
             .launchIn(viewModelScope)
     }
 
@@ -1124,136 +1052,128 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun getFirmwareVersion() {
-        lockUtilityUseCase.getFirmwareVersion()
+        flow { emit(lockUtilityUseCase.getFirmwareVersion()) }
+            .catch { e -> showLog("getFirmwareVersion exception $e \n") }
             .map { version ->
                 showLog("Get firmware version: $version \n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("getFirmwareVersion exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun factoryReset(adminCode: String) {
-        lockUtilityUseCase.factoryReset(adminCode)
+        flow { emit(lockUtilityUseCase.factoryReset(adminCode)) }
+            .catch { e -> showLog("factoryReset exception $e \n") }
             .map { result ->
                 showLog("Factory reset: $result \n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("factoryReset exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun queryTokenArray(){
-        lockTokenUseCase.queryTokenArray()
+        flow { emit(lockTokenUseCase.queryTokenArray()) }
+            .catch { e -> showLog("queryTokenArray exception $e \n") }
             .map { tokenArray ->
                 showLog("queryTokenArray: $tokenArray\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("queryTokenArray exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun queryToken(){
-        lockTokenUseCase.queryTokenArray()
+        flow { emit(lockTokenUseCase.queryTokenArray()) }
+            .catch { e -> showLog("queryToken exception $e \n") }
             .map { tokenArray ->
                 tokenArray.forEach { index ->
-                    lockTokenUseCase.queryToken(index)
-                        .collect { deviceToken ->
-                            if(deviceToken.isPermanent){
-                                showLog("queryToken[$index] is permanent token: $deviceToken\n")
-                            } else {
-                                showLog("queryToken[$index] is one time token: ${deviceToken.token} name:${deviceToken.name} permission:${deviceToken.permission}\n")
-                            }
-                        }
+                    val deviceToken = lockTokenUseCase.queryToken(index)
+                    if(deviceToken.isPermanent){
+                        showLog("queryToken[$index] is permanent token: $deviceToken\n")
+                    } else {
+                        showLog("queryToken[$index] is one time token: ${deviceToken.token} name:${deviceToken.name} permission:${deviceToken.permission}\n")
+                    }
                 }
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("queryToken exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun addOneTimeToken(permission: String, name: String) {
-        lockTokenUseCase.addOneTimeToken(permission,name)
+        flow { emit(lockTokenUseCase.addOneTimeToken(permission,name)) }
+            .catch { e -> showLog("addOneTimeToken exception $e \n") }
             .map { result ->
                     showLog("addOneTimeToken permission:$permission name:$name \nresult= $result\n")
                 }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("addOneTimeToken exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun editToken(index:Int, permission: String, name: String) {
-        lockTokenUseCase.editToken(index, permission, name)
+        flow { emit(lockTokenUseCase.editToken(index, permission, name)) }
+            .catch { e -> showLog("editToken exception $e \n") }
             .map { result ->
                 showLog("editToken[$index] permission:$permission name:$name \nresult= $result\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("editToken exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun deleteToken(index: Int, code: String = "") {
-        lockTokenUseCase.deleteToken(index, code)
+        flow { emit(lockTokenUseCase.deleteToken(index, code)) }
+            .catch { e -> showLog("deleteToken exception $e \n") }
             .map { result ->
                 showLog("deleteToken[$index] code:$code \nresult= $result\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("deleteToken exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun getAccessCodeArray(){
         when(_currentDeviceStatus){
             is DeviceStatus.DeviceStatusD6 -> {
-                lockAccessCodeUseCase.getAccessCodeArray()
+                flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
+                    .catch { e -> showLog("getAccessCodeArray exception $e \n") }
                     .map { accessCodeArray ->
                         showLog("getAccessCodeArray: $accessCodeArray\n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getAccessCodeArray exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCodeQuantity != BleV2Lock.AccessCodeQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getAccessCodeArray()
-                                .map { accessCodeArray ->
-                                    showLog("getAccessCodeArray: $accessCodeArray\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("getAccessCodeArray exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val accessCodeArray = lockAccessUseCase.getAccessCodeArray()
+                            showLog("getAccessCodeArray: $accessCodeArray\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("getAccessCodeArray exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not getAccessCodeArray. \n")
+                showLog("Not support getAccessCodeArray. \n")
             }
         }
     }
@@ -1261,59 +1181,54 @@ class HomeViewModel @Inject constructor(
     private fun queryAccessCode(){
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
-                lockAccessCodeUseCase.getAccessCodeArray()
+                flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
+                    .catch { e -> showLog("getAccessCodeArray exception $e \n") }
                     .map { list ->
                         val indexIterable = list
                             .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
                             .filter { index -> index != -1 }
                         indexIterable.forEach { index ->
-                            lockAccessCodeUseCase.queryAccessCode(index)
-                                .collect { accessCode ->
-                                    showLog("queryAccessCode[$index] is access code: $accessCode\n")
-                                }
+                            val accessCode = lockAccessCodeUseCase.queryAccessCode(index)
+                            showLog("queryAccessCode[$index] is access code: $accessCode\n")
                         }
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("queryAccessCode exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
-                        if(result.accessCodeQuantity != BleV2Lock.AccessCodeQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getAccessCodeArray()
-                                .map { list ->
-                                    val indexIterable = list.subList(0, list.size - 2)
-                                        .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                        .filter { index -> index != -1 }
-                                    Timber.d("indexIterable: $indexIterable")
-                                    indexIterable.forEach { index ->
-                                        lockAccessUseCase.queryAccessCode(index)
-                                            .filter { result -> result.type == 0 }
-                                            .collect { accessCode ->
-                                                showLog("queryAccessCode[$index] is access code: $accessCode\n")
-                                            }
-                                    }
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("queryAccessCode exception $e \n") }
-                                .launchIn(viewModelScope)
+                        if (result.accessCodeQuantity != BleV2Lock.AccessCodeQuantity.NOT_SUPPORT.value) {
+                            val list = lockAccessUseCase.getAccessCodeArray()
+                            val indexIterable = list.subList(0, list.size - 2)
+                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
+                                .filter { index -> index != -1 }
+                            Timber.d("indexIterable: $indexIterable")
+                            indexIterable
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("getAccessCodeArray exception $e \n") }
+                    .map { indexIterable ->
+                        indexIterable.forEach { index ->
+                            val accessCode = lockAccessUseCase.queryAccessCode(index)
+                            if(accessCode.type == 0) {
+                                showLog("queryAccessCode[$index] is access code: $accessCode\n")
+                            }
+                        }
+                    }
+                    .catch { e -> showLog("queryAccessCode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not queryAccessCode. \n")
+                showLog("Not support queryAccessCode. \n")
             }
         }
     }
@@ -1326,41 +1241,35 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
-                lockAccessCodeUseCase.addAccessCode(index, isEnabled, name, code, scheduleType)
+                flow { emit(lockAccessCodeUseCase.addAccessCode(index, isEnabled, name, code, scheduleType)) }
+                    .catch { e -> showLog("addAccessCode exception $e \n") }
                     .map { result ->
                         showLog("addAccessCode index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nresult= $result\n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("addAccessCode exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCodeQuantity != BleV2Lock.AccessCodeQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.addAccessCode(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("addAccessCode index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("addAccessCode exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.addAccessCode(index, isEnabled, scheduleType, name, code)
+                            showLog("addAccessCode index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("addAccessCode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not addAccessCode. \n")
+                showLog("Not support addAccessCode. \n")
             }
         }
     }
@@ -1373,41 +1282,35 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
-                lockAccessCodeUseCase.editAccessCode(index, isEnabled, name, code, scheduleType)
+                flow { emit(lockAccessCodeUseCase.editAccessCode(index, isEnabled, name, code, scheduleType)) }
+                    .catch { e -> showLog("editAccessCode exception $e \n") }
                     .map { result ->
                         showLog("editAccessCode:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nresult= $result\n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("editAccessCode exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCodeQuantity != BleV2Lock.AccessCodeQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.editAccessCode(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("editAccessCode index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("editAccessCode exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.editAccessCode(index, isEnabled, scheduleType, name, code)
+                            showLog("editAccessCode index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("editAccessCode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not editAccessCode. \n")
+                showLog("Not support editAccessCode. \n")
             }
         }
     }
@@ -1415,41 +1318,35 @@ class HomeViewModel @Inject constructor(
     private fun deleteAccessCode(index: Int) {
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusD6 -> {
-                lockAccessCodeUseCase.deleteAccessCode(index)
+                flow { emit(lockAccessCodeUseCase.deleteAccessCode(index)) }
+                    .catch { e -> showLog("deleteAccessCode exception $e \n") }
                     .map { result ->
                         showLog("deleteAccessCode[$index] \nresult= $result\n")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("deleteAccessCode exception $e \n") }
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCodeQuantity != BleV2Lock.AccessCodeQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.deleteAccessCode(index)
-                                .map { isSuccess ->
-                                    showLog("deleteAccessCode[$index] \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("deleteAccessCode exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.deleteAccessCode(index)
+                            showLog("deleteAccessCode[$index] \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("deleteAccessCode exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not deleteAccessCode. \n")
+                showLog("Not support deleteAccessCode. \n")
             }
         }
     }
@@ -1457,30 +1354,24 @@ class HomeViewModel @Inject constructor(
     private fun getAccessCardArray(){
         when(_currentDeviceStatus){
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getAccessCardArray()
-                                .map { accessCardArray ->
-                                    showLog("getAccessCardArray: $accessCardArray\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("getAccessCardArray exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val accessCardArray = lockAccessUseCase.getAccessCardArray()
+                            showLog("getAccessCardArray: $accessCardArray\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("getAccessCardArray exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not getAccessCardArray. \n")
+                showLog("Not support getAccessCardArray. \n")
             }
         }
     }
@@ -1488,40 +1379,37 @@ class HomeViewModel @Inject constructor(
     private fun queryAccessCard(){
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
-                        if(result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getAccessCardArray()
-                                .map { list ->
-                                    val indexIterable = list.subList(0, list.size - 2)
-                                        .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                        .filter { index -> index != -1 }
-                                    Timber.d("indexIterable: $indexIterable")
-                                    indexIterable.forEach { index ->
-                                        lockAccessUseCase.queryAccessCard(index)
-                                            .filter { result -> result.type == 1 }
-                                            .collect { accessCard ->
-                                                showLog("queryAccessCard[$index] is access card: $accessCard\n")
-                                            }
-                                    }
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("queryAccessCard exception $e \n") }
-                                .launchIn(viewModelScope)
-                                    } else {
-                                        throw LockStatusException.LockFunctionNotSupportException()
-                                    }
-                                }
+                        if (result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
+                            val list = lockAccessUseCase.getAccessCardArray()
+                            val indexIterable = list.subList(0, list.size - 2)
+                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
+                                .filter { index -> index != -1 }
+                            Timber.d("indexIterable: $indexIterable")
+                            indexIterable
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .catch { e -> showLog("getAccessCardArray exception $e \n") }
+                    .map{ indexIterable ->
+                        indexIterable.forEach { index ->
+                            val accessCard = lockAccessUseCase.queryAccessCard(index)
+                            if(accessCard.type == 1) {
+                                showLog("queryAccessCard[$index] is access card: $accessCard\n")
+                            }
+                        }
+                    }
+                    .catch { e -> showLog("queryAccessCard exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not queryAccessCard. \n")
+                showLog("Not support queryAccessCard. \n")
             }
         }
     }
@@ -1534,30 +1422,24 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.addAccessCard(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("addAccessCard index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("addAccessCard exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.addAccessCard(index, isEnabled, scheduleType, name, code)
+                            showLog("addAccessCard index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("addAccessCard exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not addAccessCard. \n")
+                showLog("Not support addAccessCard. \n")
             }
         }
     }
@@ -1570,30 +1452,24 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.editAccessCard(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("editAccessCard index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("editAccessCard exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.editAccessCard(index, isEnabled, scheduleType, name, code)
+                            showLog("editAccessCard index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("editAccessCard exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not editAccessCard. \n")
+                showLog("Not support editAccessCard. \n")
             }
         }
     }
@@ -1601,30 +1477,24 @@ class HomeViewModel @Inject constructor(
     private fun deleteAccessCard(index: Int) {
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.deleteAccessCard(index)
-                                .map { isSuccess ->
-                                    showLog("deleteAccessCard[$index] \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("deleteAccessCard exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.deleteAccessCard(index)
+                            showLog("deleteAccessCard[$index] \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("deleteAccessCard exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not deleteAccessCard. \n")
+                showLog("Not support deleteAccessCard. \n")
             }
         }
     }
@@ -1632,30 +1502,24 @@ class HomeViewModel @Inject constructor(
     private fun deviceGetAccessCard(){
         when(_currentDeviceStatus){
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.deviceGetAccessCard(1,5)
-                                .map { isSuccess ->
-                                    showLog("deviceGetAccessCard: $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("deviceGetAccessCard exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.deviceGetAccessCard(1,5)
+                            showLog("deviceGetAccessCard: $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("deviceGetAccessCard exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not deviceGetAccessCard. \n")
+                showLog("Not support deviceGetAccessCard. \n")
             }
         }
     }
@@ -1663,30 +1527,24 @@ class HomeViewModel @Inject constructor(
     private fun getFingerprintArray(){
         when(_currentDeviceStatus){
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getFingerprintArray()
-                                .map { fingerprintArray ->
-                                    showLog("getFingerprintArray: $fingerprintArray\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("getFingerprintArray exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val fingerprintArray = lockAccessUseCase.getFingerprintArray()
+                            showLog("getFingerprintArray: $fingerprintArray\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("getFingerprintArray exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not getFingerprintArray. \n")
+                showLog("Not support getFingerprintArray. \n")
             }
         }
     }
@@ -1694,40 +1552,37 @@ class HomeViewModel @Inject constructor(
     private fun queryFingerprint(){
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getFingerprintArray()
-                                .map { list ->
-                                    val indexIterable = list.subList(0, list.size - 2)
-                                        .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                        .filter { index -> index != -1 }
-                                    Timber.d("indexIterable: $indexIterable")
-                                    indexIterable.forEach { index ->
-                                        lockAccessUseCase.queryFingerprint(index)
-                                            .filter { result -> result.type == 2 }
-                                            .collect { fingerprint ->
-                                                showLog("queryFingerprint[$index] is Fingerprint: $fingerprint\n")
-                                            }
-                                    }
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("queryFingerprint exception $e \n") }
-                                .launchIn(viewModelScope)
-                                    } else {
-                                        throw LockStatusException.LockFunctionNotSupportException()
-                                    }
-                                }
+                            val list = lockAccessUseCase.getFingerprintArray()
+                            val indexIterable = list.subList(0, list.size - 2)
+                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
+                                .filter { index -> index != -1 }
+                            Timber.d("indexIterable: $indexIterable")
+                            indexIterable
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .catch { e -> showLog("getFingerprintArray exception $e \n") }
+                    .map { indexIterable ->
+                        indexIterable.forEach { index ->
+                            val fingerprint = lockAccessUseCase.queryFingerprint(index)
+                            if(fingerprint.type == 2) {
+                                showLog("queryFingerprint[$index] is Fingerprint: $fingerprint\n")
+                            }
+                        }
+                    }
+                    .catch { e -> showLog("queryFingerprint exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not queryFingerprint. \n")
+                showLog("Not support queryFingerprint. \n")
             }
         }
     }
@@ -1740,30 +1595,24 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("addFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("addFingerprint exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name, code)
+                            showLog("addFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("addFingerprint exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not addFingerprint. \n")
+                showLog("Not support addFingerprint. \n")
             }
         }
     }
@@ -1776,30 +1625,24 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("editFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("editFingerprint exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name, code)
+                            showLog("editFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("editFingerprint exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not editFingerprint. \n")
+                showLog("Not support editFingerprint. \n")
             }
         }
     }
@@ -1807,30 +1650,24 @@ class HomeViewModel @Inject constructor(
     private fun deleteFingerprint(index: Int) {
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.deleteFingerprint(index)
-                                .map { isSuccess ->
-                                    showLog("deleteFingerprint[$index] \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("deleteFingerprint exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.deleteFingerprint(index)
+                            showLog("deleteFingerprint[$index] \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("deleteFingerprint exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not deleteFingerprint. \n")
+                showLog("Not support deleteFingerprint. \n")
             }
         }
     }
@@ -1838,30 +1675,24 @@ class HomeViewModel @Inject constructor(
     private fun deviceGetFingerprint(){
         when(_currentDeviceStatus){
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.deviceGetFingerprint(1,5)
-                                .map { isSuccess ->
-                                    showLog("deviceGetFingerprint: $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("deviceGetFingerprint exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.deviceGetFingerprint(1,5)
+                            showLog("deviceGetFingerprint: $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("deviceGetFingerprint exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not deviceGetFingerprint. \n")
+                showLog("Not support deviceGetFingerprint. \n")
             }
         }
     }
@@ -1869,30 +1700,24 @@ class HomeViewModel @Inject constructor(
     private fun getFaceArray(){
         when(_currentDeviceStatus){
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getFaceArray()
-                                .map { faceArray ->
-                                    showLog("getFaceArray: $faceArray\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("getFaceArray exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val faceArray = lockAccessUseCase.getFaceArray()
+                            showLog("getFaceArray: $faceArray\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("getFaceArray exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not getFaceArray. \n")
+                showLog("Not support getFaceArray. \n")
             }
         }
     }
@@ -1900,40 +1725,37 @@ class HomeViewModel @Inject constructor(
     private fun queryFace(){
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
-                        if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.getFaceArray()
-                                .map { list ->
-                                    val indexIterable = list.subList(0, list.size - 2)
-                                        .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                        .filter { index -> index != -1 }
-                                    Timber.d("indexIterable: $indexIterable")
-                                    indexIterable.forEach { index ->
-                                        lockAccessUseCase.queryFace(index)
-                                            .filter { result -> result.type == 3 }
-                                            .collect { queryFace ->
-                                                showLog("queryFace[$index] is face: $queryFace\n")
-                                            }
-                                    }
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("queryFace exception $e \n") }
-                                .launchIn(viewModelScope)
-                                    } else {
-                                        throw LockStatusException.LockFunctionNotSupportException()
-                                    }
-                                }
+                        if (result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
+                            val list = lockAccessUseCase.getFaceArray()
+                            val indexIterable = list.subList(0, list.size - 2)
+                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
+                                .filter { index -> index != -1 }
+                            Timber.d("indexIterable: $indexIterable")
+                            indexIterable
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .catch { e -> showLog("getFaceArray exception $e \n") }
+                    .map { indexIterable ->
+                        indexIterable.forEach { index ->
+                            val queryFace = lockAccessUseCase.queryFace(index)
+                            if (queryFace.type == 3) {
+                                showLog("queryFace[$index] is face: $queryFace\n")
+                            }
+                        }
+                    }
+                    .catch { e -> showLog("queryFace exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not queryFace. \n")
+                showLog("Not support queryFace. \n")
             }
         }
     }
@@ -1946,30 +1768,24 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.addFace(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("addFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("addFace exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.addFace(index, isEnabled, scheduleType, name, code)
+                            showLog("addFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("addFace exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not addFace. \n")
+                showLog("Not support addFace. \n")
             }
         }
     }
@@ -1982,30 +1798,24 @@ class HomeViewModel @Inject constructor(
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.editFace(index, isEnabled, scheduleType, name, code)
-                                .map { isSuccess ->
-                                    showLog("editFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("editFace exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.editFace(index, isEnabled, scheduleType, name, code)
+                            showLog("editFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("editFace exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not editFace. \n")
+                showLog("Not support editFace. \n")
             }
         }
     }
@@ -2013,30 +1823,24 @@ class HomeViewModel @Inject constructor(
     private fun deleteFace(index: Int) {
         when(_currentDeviceStatus) {
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.deleteFace(index)
-                                .map { isSuccess ->
-                                    showLog("deleteFace[$index] \nisSuccess= $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("deleteFace exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.deleteFace(index)
+                            showLog("deleteFace[$index] \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("deleteFace exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not deleteFace. \n")
+                showLog("Not support deleteFace. \n")
             }
         }
     }
@@ -2044,85 +1848,84 @@ class HomeViewModel @Inject constructor(
     private fun deviceGetFace(){
         when(_currentDeviceStatus){
             is DeviceStatus.DeviceStatusA2 -> {
-                lockUtilityUseCase.getLockSupportedUnlockTypes()
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            lockAccessUseCase.deviceGetFace(1,5)
-                                .map { isSuccess ->
-                                    showLog("deviceGetFace: $isSuccess\n")
-                                }
-                                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                                .flowOn(Dispatchers.IO)
-                                .catch { e -> showLog("deviceGetFace exception $e \n") }
-                                .launchIn(viewModelScope)
+                            val isSuccess = lockAccessUseCase.deviceGetFace(1,5)
+                            showLog("deviceGetFace: $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
                     }
+                    .catch { e -> showLog("deviceGetFace exception $e \n") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .launchIn(viewModelScope)
             }
             else -> {
-                showLog("Unknown device status not deviceGetFace. \n")
+                showLog("Not support deviceGetFace. \n")
             }
         }
     }
 
     private fun getEventQuantity(){
-        lockEventLogUseCase.getEventQuantity()
+        flow { emit(lockEventLogUseCase.getEventQuantity()) }
+            .catch { e -> showLog("getEventQuantity exception $e \n") }
             .map { result ->
                 showLog("getEventQuantity \nresult= $result\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("getEventQuantity exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun getEvent(){
-        lockEventLogUseCase.getEventQuantity()
+        flow { emit(lockEventLogUseCase.getEventQuantity()) }
+            .catch { e -> showLog("getEvent exception $e \n") }
             .map { result ->
                 for(index in 0 until result){
-                    lockEventLogUseCase.getEvent(index)
-                        .collect{ eventLog ->
-                            showLog("getEvent index[$index] \neventLog: $eventLog\n")
-                        }
+                    val eventLog = lockEventLogUseCase.getEvent(index)
+                    showLog("getEvent index[$index] \neventLog: $eventLog\n")
                 }
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("getEvent exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun deleteEvent(index: Int){
-        lockEventLogUseCase.deleteEvent(index)
+        flow { emit(lockEventLogUseCase.deleteEvent(index)) }
+            .catch { e -> showLog("deleteEvent exception $e \n") }
             .map { result ->
                 showLog("deleteEvent index[$index] \nresult= $result\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
             .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("deleteEvent exception $e \n") }
             .launchIn(viewModelScope)
     }
 
     private fun getLockSupportedUnlockTypes() {
-        lockUtilityUseCase.getLockSupportedUnlockTypes()
-            .map { result ->
-                showLog("getLockSupportedUnlockTypes result= $result\n")
+        when(_currentDeviceStatus){
+            is DeviceStatus.DeviceStatusA2 -> {
+                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
+                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
+                    .map { result ->
+                        showLog("getLockSupportedUnlockTypes result= $result\n")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
-            .launchIn(viewModelScope)
+            else -> {
+                showLog("Not support getLockSupportedUnlockTypes. \n")
+            }
+        }
     }
 
     private fun disconnect() {
