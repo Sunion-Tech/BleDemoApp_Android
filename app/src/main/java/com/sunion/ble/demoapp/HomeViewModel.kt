@@ -403,14 +403,18 @@ class HomeViewModel @Inject constructor(
                     EventState.SUCCESS -> {
                         if (event.status == EventState.SUCCESS && event.data?.first == true) {
                             _uiState.update { it.copy(isLoading = false, isConnectedWithLock = true) }
+                            _lockConnectionInfo = _lockConnectionInfo!!.copy(
+                                permission = statefulConnection.lockConnectionInfo.permission,
+                                keyTwo = statefulConnection.lockConnectionInfo.keyTwo,
+                                permanentToken = statefulConnection.lockConnectionInfo.permanentToken
+                            )
                             showLog("connect to lock succeed.\n")
-                            showLog("Lock connection information:")
-                            showLog("${statefulConnection.lockConnectionInfo}\n")
                             // connect with oneTimeToken
                             if (_lockConnectionInfo!!.permanentToken.isNullOrEmpty()) {
                                 showLog("After pairing with lock, you can get lock connection information from statefulConnection.lockConnectionInfo and save permanent token for later use.\n")
                             }
-                            _lockConnectionInfo = statefulConnection.lockConnectionInfo
+                            showLog("Lock connection information:")
+                            showLog("${_lockConnectionInfo}\n")
                         }
                     }
                     EventState.LOADING -> {}
@@ -424,13 +428,9 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             showLog("Connecting to ${_lockConnectionInfo!!.macAddress!!}...")
             statefulConnection.establishConnection(
-                oneTimeToken = _lockConnectionInfo!!.oneTimeToken!!,
-                keyOne = _lockConnectionInfo!!.keyOne!!,
                 macAddress = _lockConnectionInfo!!.macAddress!!,
-                model = _lockConnectionInfo!!.model!!,
-                serialNumber = _lockConnectionInfo!!.serialNumber,
-                isFrom = _lockConnectionInfo!!.isFrom,
-                lockName = _lockConnectionInfo!!.lockName,
+                keyOne = _lockConnectionInfo!!.keyOne!!,
+                oneTimeToken = _lockConnectionInfo!!.oneTimeToken!!,
                 permanentToken = _lockConnectionInfo!!.permanentToken,
                 isSilentlyFail = false
             )
