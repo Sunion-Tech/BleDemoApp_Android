@@ -1506,7 +1506,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.accessCardQuantity != BleV2Lock.AccessCardQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.deviceGetAccessCard(1,5)
+                            val isSuccess = lockAccessUseCase.deviceGetAccessCard(5)
                             showLog("deviceGetAccessCard: $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1679,7 +1679,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.deviceGetFingerprint(1,5)
+                            val isSuccess = lockAccessUseCase.deviceGetFingerprint(5)
                             showLog("deviceGetFingerprint: $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1852,7 +1852,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.deviceGetFace(1,5)
+                            val isSuccess = lockAccessUseCase.deviceGetFace(5)
                             showLog("deviceGetFace: $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
