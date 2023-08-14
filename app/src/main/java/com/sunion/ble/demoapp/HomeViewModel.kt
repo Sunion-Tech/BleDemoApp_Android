@@ -7,6 +7,7 @@ import com.sunion.core.ble.ReactiveStatefulConnection
 import com.sunion.core.ble.usecase.LockNameUseCase
 import com.sunion.core.ble.entity.*
 import com.sunion.core.ble.exception.LockStatusException
+import com.sunion.core.ble.accessCodeToHex
 import com.sunion.core.ble.unless
 import com.sunion.core.ble.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -1417,7 +1418,8 @@ class HomeViewModel @Inject constructor(
     private fun addAccessCard() {
         val isEnabled = true
         val name = "Tom2"
-        val code = "12345"
+        val code = byteArrayOf(0x00, 0x00, 0x00, 0x00, 0xFC.toByte(),
+            0xE8.toByte(), 0xFA.toByte(), 0x5B)
         val index = 2
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
@@ -1447,7 +1449,7 @@ class HomeViewModel @Inject constructor(
     private fun editAccessCard() {
         val isEnabled = true
         val name = "Tom23"
-        val code = "23456"
+        val code =  byteArrayOf(0x88.toByte(), 0x04, 0x37, 0x75, 0x6A, 0x57, 0x58, 0x81.toByte())
         val index = 2
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
@@ -1590,7 +1592,7 @@ class HomeViewModel @Inject constructor(
     private fun addFingerprint() {
         val isEnabled = true
         val name = "Tom3"
-        val code = "123456"
+        val code = "80"
         val index = 3
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
@@ -1599,7 +1601,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name, code)
+                            val isSuccess = lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name, code.accessCodeToHex())
                             showLog("addFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1620,7 +1622,7 @@ class HomeViewModel @Inject constructor(
     private fun editFingerprint() {
         val isEnabled = true
         val name = "Tom34"
-        val code = "234567"
+        val code = "100"
         val index = 3
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
@@ -1629,7 +1631,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name, code)
+                            val isSuccess = lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name, code.accessCodeToHex())
                             showLog("editFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1763,7 +1765,7 @@ class HomeViewModel @Inject constructor(
     private fun addFace() {
         val isEnabled = true
         val name = "Tom4"
-        val code = "1234567"
+        val code = "70"
         val index = 4
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
@@ -1772,7 +1774,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.addFace(index, isEnabled, scheduleType, name, code)
+                            val isSuccess = lockAccessUseCase.addFace(index, isEnabled, scheduleType, name, code.accessCodeToHex())
                             showLog("addFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1793,7 +1795,7 @@ class HomeViewModel @Inject constructor(
     private fun editFace() {
         val isEnabled = true
         val name = "Tom45"
-        val code = "2345678"
+        val code = "80"
         val index = 4
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
@@ -1802,7 +1804,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.editFace(index, isEnabled, scheduleType, name, code)
+                            val isSuccess = lockAccessUseCase.editFace(index, isEnabled, scheduleType, name, code.accessCodeToHex())
                             showLog("editFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
