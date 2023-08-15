@@ -39,6 +39,7 @@ class HomeViewModel @Inject constructor(
     private val lockEventLogUseCase: LockEventLogUseCase,
     private val deviceStatusA2UseCase: DeviceStatusA2UseCase,
     private val lockConfigA0UseCase: LockConfigA0UseCase,
+    private val lockWifiUseCase: LockWifiUseCase
 ): ViewModel(){
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
@@ -61,6 +62,14 @@ class HomeViewModel @Inject constructor(
     private var _currentDeviceStatus : SunionBleNotification = DeviceStatus.UNKNOWN
 
     private var _currentSunionBleNotification : SunionBleNotification = SunionBleNotification.UNKNOWN
+
+    private var isCollectingConnectToWifiState = false
+    private var isConnectingToWifi = false
+    private var isWifiConnected = false
+
+    private var scanWifiJob: Job? = null
+    private var collectWifiListJob: Job? = null
+    private var connectToWifiJob: Job? = null
 
     fun init() {
         Timber.d("init")
@@ -337,6 +346,15 @@ class HomeViewModel @Inject constructor(
             // Get Lock Supported Unlock Types
             TaskCode.GetLockSupportedUnlockTypes -> {
                 getLockSupportedUnlockTypes()
+            }
+            // Scan Wifi
+            TaskCode.ScanWifi -> {
+                collectWifiList()
+                scanWifi()
+            }
+            // Connect To Wifi
+            TaskCode.ConnectToWifi -> {
+                connectToWifi("Sunion-SW", "S-device_W")
             }
             // Disconnect
             TaskCode.Disconnect -> {
@@ -1930,6 +1948,94 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun collectWifiList(){
+        collectWifiListJob?.cancel()
+        collectWifiListJob = lockWifiUseCase.collectWifiList()
+            .catch { e -> showLog("collectWifiList exception $e \n") }
+            .onEach { wifi ->
+                when (wifi) {
+                    WifiList.End -> {
+                        _uiState.update { it.copy(isLoading = false) }
+                        collectWifiListJob?.cancel()
+                        showLog("collectWifiList end\n")
+                    }
+                    is WifiList.Wifi -> {
+                        showLog("collectWifiList result: \nssid: ${wifi.ssid} needPassword: ${wifi.needPassword}\n")
+                    }
+                }
+            }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+    }
+
+    private fun scanWifi(){
+        if (scanWifiJob != null) return
+        _uiState.update { it.copy(isLoading = true) }
+        scanWifiJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(1000)
+            runCatching { lockWifiUseCase.scanWifi() }.getOrElse { Timber.e(it) }
+            scanWifiJob = null
+        }
+    }
+
+    private fun connectToWifi(ssid: String, password: String){
+        if (isCollectingConnectToWifiState) return
+        connectToWifiJob?.cancel()
+        connectToWifiJob = lockWifiUseCase
+            .collectConnectToWifiState()
+            .flowOn(Dispatchers.IO)
+            .onStart { isCollectingConnectToWifiState = true }
+            .onCompletion { isCollectingConnectToWifiState = false }
+            .onEach { wifiConnectState ->
+                val progressMessage =
+                    when (wifiConnectState) {
+                        WifiConnectState.ConnectWifiSuccess -> "Wifi connected, connecting to cloud service..."
+                        WifiConnectState.ConnectWifiFail -> "Connect to Wi-Fi failed."
+                        WifiConnectState.ConnectAwsSuccess -> "Cloud service connected, syncing data..."
+                        WifiConnectState.ConnectCloudSuccess -> "Data sync completed, bluetooth connection disconnected."
+                        WifiConnectState.Failed -> "Unknown error."
+                    }
+                showLog(progressMessage)
+
+                if (wifiConnectState == WifiConnectState.ConnectCloudSuccess) {
+                    isConnectingToWifi = false
+                    isWifiConnected = true
+                    connectToWifiJob?.cancel()
+                    _uiState.update { it.copy(isLoading = false) }
+                } else if (wifiConnectState == WifiConnectState.ConnectWifiFail) {
+                    Timber.e("CWifiFail")
+                    showLog("Connect to Wi-Fi failed, because not had provisionTicket.")
+                }
+            }
+            .catch {
+                Timber.e(it)
+                if (it.message?.contains("Disconnected") == false)
+                    Timber.e("CWifi listener exception $it")
+                showLog("Connect to Wi-Fi failed. $it")
+            }
+            .launchIn(viewModelScope)
+
+        flow { emit(lockWifiUseCase.connectToWifi(ssid, password)) }
+            .flowOn(Dispatchers.IO)
+            .onStart {
+                isConnectingToWifi = true
+                _uiState.update { it.copy(isLoading = true) }
+            }
+            .catch {
+                Timber.e("CWifi sender exception $it")
+                showLog("Connect to Wi-Fi failed. $it")
+            }
+            .launchIn(viewModelScope)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            delay(120_000)
+            if (isConnectingToWifi) {
+                Timber.e("CWifi timeout")
+                showLog("Connect to Wi-Fi failed.")
+            }
+        }
+    }
+
     private fun disconnect() {
         statefulConnection.disconnect()
         _bleConnectionStateListener?.cancel()
@@ -2053,6 +2159,8 @@ object TaskCode {
     const val ToggleOperatingSound = 52
     const val ToggleShowFastTrackMode = 53
     const val GetLockSupportedUnlockTypes = 54
+    const val ScanWifi = 55
+    const val ConnectToWifi = 56
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val Disconnect = 99
