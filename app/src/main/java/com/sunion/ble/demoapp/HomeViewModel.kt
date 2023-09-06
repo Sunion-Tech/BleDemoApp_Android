@@ -173,7 +173,7 @@ class HomeViewModel @Inject constructor(
             }
             // Toggle auto lock
             TaskCode.ToggleAutoLock -> {
-                toggleAutoLock(6)
+                toggleAutoLock(10)
             }
             // Set lock location
             TaskCode.SetLockLocation -> {
