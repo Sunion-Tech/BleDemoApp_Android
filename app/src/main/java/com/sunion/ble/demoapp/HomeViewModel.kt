@@ -1,5 +1,10 @@
 package com.sunion.ble.demoapp
 
+import android.annotation.SuppressLint
+import android.app.Application
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sunion.core.ble.usecase.LockQRCodeUseCase
@@ -14,6 +19,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import timber.log.Timber
+import java.io.InputStream
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
@@ -39,8 +46,10 @@ class HomeViewModel @Inject constructor(
     private val lockEventLogUseCase: LockEventLogUseCase,
     private val deviceStatusA2UseCase: DeviceStatusA2UseCase,
     private val lockConfigA0UseCase: LockConfigA0UseCase,
-    private val lockWifiUseCase: LockWifiUseCase
-): ViewModel(){
+    private val lockWifiUseCase: LockWifiUseCase,
+    private val lockOTAUseCase: LockOTAUseCase,
+    private val application: Application
+): ViewModel() {
     private val _uiState = MutableStateFlow(UiState())
     val uiState = _uiState.asStateFlow()
 
@@ -70,6 +79,17 @@ class HomeViewModel @Inject constructor(
     private var scanWifiJob: Job? = null
     private var collectWifiListJob: Job? = null
     private var connectToWifiJob: Job? = null
+
+    private var currentFileUri: Uri? = null
+    val chunkSize = 128
+    var fileSize: Long = 0
+    val ivString = "0439F307DD7DC259C4242D8A83FF70A7"
+    val signatureV005 =
+        "3045022100CE013DE7E4816F0F9D35955879FB34DF2C0CB0BC335E9C4D598B23498C978DE30220401808C3E08E36F899EC36B57944731F48B54300E229EA6ADF181F374763E94E"
+    val signatureV008 =
+        "3046022100BC8B2E6E479E81680C16CA2AE61FA88D84B063AF8334361D1B01ABA57941AD04022100D7E894B0F4DE3F448CD1E112AE48557F5664D0A686DCFC797233ED3D119851C0"
+    val hash256V005 = "76fe255b21c7a3b2a7108c7215e543f87a85e93b47ef0cc521aca958a776aef0"
+    val hash256V008 = "e7dc8db6ed39cd24a5beec3a46be1109d466b5e9d830c0a41dbeeec800bcad01"
 
     fun init() {
         Timber.d("init")
@@ -355,6 +375,19 @@ class HomeViewModel @Inject constructor(
             // Connect To Wifi
             TaskCode.ConnectToWifi -> {
                 connectToWifi("Sunion-SW", "S-device_W")
+            }
+            // Set OTA Status
+            TaskCode.SetOTAStatus -> {
+                setOTAStatus(0, 2, currentFileUri)
+            }
+            // Transfer OTA Data
+            TaskCode.TransferOTAData -> {
+                calculateSHA256(currentFileUri)
+                splitFile(currentFileUri)
+            }
+            // Set OTA Cancel
+            TaskCode.SetOTACancel -> {
+                setOTACancel(0, 0)
             }
             // Disconnect
             TaskCode.Disconnect -> {
@@ -2036,6 +2069,68 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun setOTAStatus(target: Int, status: Int, file: Uri?) {
+        if (file != null) {
+            flow { emit(lockOTAUseCase.setOTAStatus(target, status, getFileLength(file))) }
+                .catch { e -> showLog("getOTAStatus exception $e \n") }
+                .map { result ->
+                    showLog("getOTAStatus result= $result\n")
+                }
+                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                .flowOn(Dispatchers.IO)
+                .launchIn(viewModelScope)
+        } else {
+            showLog("getOTAStatus not choose file\n")
+        }
+    }
+
+    private fun setOTAFinish(
+        target: Int,
+        status: Int,
+        file: Uri?,
+        iv: String,
+        signature: String
+    ) {
+        if (file != null) {
+            flow {
+                emit(
+                    lockOTAUseCase.setOTAFinish(
+                        target,
+                        status,
+                        getFileLength(file),
+                        iv,
+                        signature
+                    )
+                )
+            }
+                .catch { e -> showLog("getOTAStatusFinish exception $e \n") }
+                .map { result ->
+                    showLog("getOTAStatusFinish result= $result\n")
+                }
+                .onStart { _uiState.update { it.copy(isLoading = true) } }
+                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                .flowOn(Dispatchers.IO)
+                .launchIn(viewModelScope)
+        } else {
+            showLog("getOTAStatus not choose file\n")
+        }
+    }
+
+    private fun setOTACancel(target: Int, status: Int) {
+
+        flow { emit(lockOTAUseCase.setOTACancel(target, status)) }
+            .catch { e -> showLog("getOTAStatusCancel exception $e \n") }
+            .map { result ->
+                showLog("getOTAStatusCancel result= $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+
+    }
+
     private fun disconnect() {
         statefulConnection.disconnect()
         _bleConnectionStateListener?.cancel()
@@ -2085,6 +2180,117 @@ class HomeViewModel @Inject constructor(
 
     fun closeBluetoothEnableDialog() {
         _uiState.update { it.copy(shouldShowBluetoothEnableDialog = false) }
+    }
+
+    fun handleFileSelection(fileUri: Uri?) {
+        if (fileUri != null) {
+            currentFileUri = fileUri
+            viewModelScope.launch(Dispatchers.IO) {
+                val fileLength = getFileLength(fileUri)
+                Timber.d("handleFileSelection: $fileLength")
+            }
+        }
+    }
+
+    @SuppressLint("Range")
+    suspend fun getFileLength(fileUri: Uri): Long {
+        return withContext(Dispatchers.IO) {
+            val contentResolver: ContentResolver = application.contentResolver
+            val cursor = contentResolver.query(fileUri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    val displayName = it.getString(it.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+                    val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+                    val size = it.getLong(sizeIndex)
+                    showLog("File Name: $displayName")
+                    showLog("File Size: $size bytes")
+                    fileSize = size
+//                    splitFile(currentFileUri)
+                    return@withContext if (sizeIndex != -1) {
+                        size
+                    } else {
+                        -1
+                    }
+                }
+            }
+            return@withContext -1
+        }
+    }
+
+    fun splitFile(fileUri: Uri?) {
+        if (fileUri != null) {
+            val contentResolver: ContentResolver = application.contentResolver
+            val inputStream: InputStream? = contentResolver.openInputStream(fileUri)
+
+            if (inputStream == null) {
+                println("Failed to open input stream.")
+                return
+            }
+
+            val buffer = ByteArray(chunkSize)
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    var bytesRead: Int
+
+                    inputStream.use { inputStream ->
+                        var blockNumber = 0
+                        bytesRead = inputStream.read(buffer)
+
+                        showLog("Send start ${blockNumber * chunkSize} / $fileSize = 0%")
+                        while (bytesRead != -1) {
+
+
+                            val result = lockOTAUseCase.transferOTAData(
+                                blockNumber * chunkSize,
+                                buffer.take(bytesRead).toByteArray()
+                            )
+                            Timber.d("end: $result")
+
+                            blockNumber++
+                            showLog("Sending ${blockNumber * chunkSize} / $fileSize = ${(blockNumber * chunkSize * 100 / fileSize) } %")
+                            bytesRead = inputStream.read(buffer)
+                        }
+                        showLog("Send end ${blockNumber * chunkSize} / $fileSize = 100%")
+                        val result = lockOTAUseCase.setOTAFinish(0, 1, fileSize, ivString, signatureV005)
+                        Timber.d("end: $result")
+                    }
+
+                    inputStream.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    fun calculateSHA256(fileUri: Uri?) {
+        if (fileUri != null) {
+            val contentResolver: ContentResolver = application.contentResolver
+            val inputStream: InputStream? = contentResolver.openInputStream(fileUri)
+
+            if (inputStream == null) {
+                Timber.d("calculateSHA256: Failed to open input stream.")
+                return
+            }
+
+            val digest = MessageDigest.getInstance("SHA-256")
+            val byteArray = ByteArray(1024)
+            var bytesCount: Int
+
+            while (inputStream.read(byteArray).also { bytesCount = it } != -1) {
+                digest.update(byteArray, 0, bytesCount)
+            }
+
+            inputStream.close()
+            val bytes = digest.digest()
+
+            val sb = StringBuilder()
+            for (byte in bytes) {
+                sb.append(String.format("%02x", byte))
+            }
+
+            Timber.d("calculateSHA256: $sb")
+        }
     }
 }
 
@@ -2161,6 +2367,9 @@ object TaskCode {
     const val GetLockSupportedUnlockTypes = 54
     const val ScanWifi = 55
     const val ConnectToWifi = 56
+    const val SetOTAStatus = 57
+    const val TransferOTAData = 58
+    const val SetOTACancel = 59
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val Disconnect = 99

@@ -1,6 +1,7 @@
 package com.sunion.ble.demoapp.ui.screen
 
 import android.Manifest
+import android.app.Activity
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -101,6 +102,9 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.GetLockSupportedUnlockTypes to "Get lock supported unlock types",
         TaskCode.ScanWifi to "scan wifi",
         TaskCode.ConnectToWifi to "connect to wifi",
+        TaskCode.SetOTAStatus to "Set OTA status",
+        TaskCode.TransferOTAData to "Transfer OTA data",
+        TaskCode.SetOTACancel to "Set OTA cancel",
         TaskCode.GetFwVersion to "Get firmware version",
         TaskCode.FactoryReset to "Factory reset",
         TaskCode.Disconnect to "Disconnect"
@@ -114,6 +118,16 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
             navController.navigate(HomeRoute.Scan.route)
         }
     }
+
+    val fileLauncher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.StartActivityForResult()) {
+                result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val data: Intent? = result.data
+                val fileUri = data?.data
+                fileUri?.let { viewModel.handleFileSelection(it) }
+            }
+        }
 
     HomeScreen(
         uiState,
@@ -134,6 +148,12 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         },
         shouldShowTaskList = viewModel::shouldShowTaskList,
         onTaskItemClicked = viewModel::setTaskCode,
+        onChooseFileClicked = {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+            intent.addCategory(Intent.CATEGORY_OPENABLE)
+            intent.type = "*/*"
+            fileLauncher.launch(intent)
+        },
     )
 
     if (uiState.isLoading)
@@ -178,6 +198,7 @@ fun HomeScreen(
     onScanClicked: () -> Unit,
     shouldShowTaskList: (Boolean) -> Unit,
     onTaskItemClicked: (Int) -> Unit,
+    onChooseFileClicked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var dropDownWidth by remember { mutableStateOf(0) }
@@ -194,6 +215,14 @@ fun HomeScreen(
             },
             backgroundColor = AppTheme.colors.background,
             actions = {
+                Button(
+                    onClick = {
+                        onChooseFileClicked()
+                    }
+                ) {
+                    Text("選擇OTA檔案")
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 if (state.isConnectedWithLock) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_baseline_bluetooth_connected_24),
