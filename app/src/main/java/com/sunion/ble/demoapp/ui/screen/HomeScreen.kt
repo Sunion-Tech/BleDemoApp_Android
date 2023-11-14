@@ -100,11 +100,11 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.GetEvent to "Get event",
         TaskCode.DeleteEvent to "Delete event",
         TaskCode.GetLockSupportedUnlockTypes to "Get lock supported unlock types",
-        TaskCode.ScanWifi to "scan wifi",
-        TaskCode.ConnectToWifi to "connect to wifi",
         TaskCode.SetOTAStatus to "Set OTA status",
         TaskCode.TransferOTAData to "Transfer OTA data",
         TaskCode.SetOTACancel to "Set OTA cancel",
+        TaskCode.ScanWifi to "Scan wifi",
+        TaskCode.ConnectToWifi to "Connect to wifi",
         TaskCode.GetFwVersion to "Get firmware version",
         TaskCode.FactoryReset to "Factory reset",
         TaskCode.Disconnect to "Disconnect"

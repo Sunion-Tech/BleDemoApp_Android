@@ -1991,6 +1991,10 @@ class HomeViewModel @Inject constructor(
                         _uiState.update { it.copy(isLoading = false) }
                         collectWifiListJob?.cancel()
                         showLog("collectWifiList end\n")
+                        if(scanWifiJob != null){
+                            scanWifiJob?.cancel()
+                            scanWifiJob = null
+                        }
                     }
                     is WifiList.Wifi -> {
                         showLog("collectWifiList result: \nssid: ${wifi.ssid} needPassword: ${wifi.needPassword}\n")
@@ -2003,12 +2007,21 @@ class HomeViewModel @Inject constructor(
 
     private fun scanWifi(){
         if (scanWifiJob != null) return
-        _uiState.update { it.copy(isLoading = true) }
-        scanWifiJob = viewModelScope.launch(Dispatchers.IO) {
-            delay(1000)
-            runCatching { lockWifiUseCase.scanWifi() }.getOrElse { Timber.e(it) }
-            scanWifiJob = null
-        }
+        scanWifiJob = flow { emit(lockWifiUseCase.scanWifi()) }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion {
+                delay(10000)
+                if(uiState.value.isLoading){
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+                if(scanWifiJob != null){
+                    scanWifiJob?.cancel()
+                    scanWifiJob = null
+                }
+            }
+            .catch { e -> Timber.e(e) }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
     }
 
     private fun connectToWifi(ssid: String, password: String){
