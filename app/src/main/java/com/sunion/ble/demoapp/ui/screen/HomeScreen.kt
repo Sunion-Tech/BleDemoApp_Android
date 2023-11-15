@@ -104,8 +104,10 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.ConnectToWifi to "Connect to wifi",
         TaskCode.SetOTAUpdate to "OTA update",
         TaskCode.SetOTACancel to "OTA cancel",
+        TaskCode.TogglePlugState to "Toggle plug state",
         TaskCode.GetFwVersion to "Get firmware version",
         TaskCode.FactoryReset to "Factory reset",
+        TaskCode.FactoryResetNoAdmin to "Factory reset no admin",
         TaskCode.Disconnect to "Disconnect"
     )
 

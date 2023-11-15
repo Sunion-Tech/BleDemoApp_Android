@@ -49,6 +49,7 @@ class HomeViewModel @Inject constructor(
     private val lockConfigA0UseCase: LockConfigA0UseCase,
     private val lockWifiUseCase: LockWifiUseCase,
     private val lockOTAUseCase: LockOTAUseCase,
+    private val plugConfigUseCase: PlugConfigUseCase,
     private val application: Application
 ): ViewModel() {
     private val _uiState = MutableStateFlow(UiState())
@@ -234,6 +235,10 @@ class HomeViewModel @Inject constructor(
             TaskCode.UpdateAdminCode -> {
                 updateAdminCode(adminCode, newCode = "1234")
             }
+            // Plug on
+            TaskCode.TogglePlugState -> {
+                togglePlugState()
+            }
             // Get firmware version
             TaskCode.GetFwVersion -> {
                 getFirmwareVersion()
@@ -241,6 +246,10 @@ class HomeViewModel @Inject constructor(
             // Factory reset
             TaskCode.FactoryReset -> {
                 factoryReset(adminCode)
+            }
+            // Factory reset
+            TaskCode.FactoryResetNoAdmin -> {
+                factoryReset()
             }
             // Query TokenArray
             TaskCode.QueryTokenArray -> {
@@ -556,6 +565,22 @@ class HomeViewModel @Inject constructor(
                             deviceStatus.securityBolt,
                             deviceStatus.battery,
                             deviceStatus.batteryState
+                        )
+                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.DeviceStatusB0 -> {
+                flow { emit(plugConfigUseCase()) }
+                    .catch { e -> showLog("getDeviceStatusB0 exception $e \n") }
+                    .map { deviceStatus ->
+                        _currentDeviceStatus = DeviceStatus.DeviceStatusB0(
+                            deviceStatus.setWifi,
+                            deviceStatus.connectWifi,
+                            deviceStatus.plugState
                         )
                         updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
                     }
@@ -1085,6 +1110,28 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    private fun togglePlugState() {
+        when (_currentDeviceStatus) {
+            is DeviceStatus.DeviceStatusB0 -> {
+                val deviceStatusB0 = _currentDeviceStatus as DeviceStatus.DeviceStatusB0
+                val plugState =
+                    if (deviceStatusB0.plugState == BleV2Lock.PlugState.POWER_ON.value) {
+                        BleV2Lock.PlugState.POWER_OFF.value
+                    } else {
+                        BleV2Lock.PlugState.POWER_ON.value
+                    }
+                showLog("togglePlugState $plugState\n")
+                flow { emit(plugConfigUseCase.setPlugState(plugState)) }
+                    .catch { e -> showLog("togglePlugState exception $e \n") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {}
+        }
+    }
+
     private fun updateCurrentDeviceStatusOrNotification(sunionBleNotification: SunionBleNotification) {
         when (sunionBleNotification) {
             is DeviceStatus -> {
@@ -1116,6 +1163,18 @@ class HomeViewModel @Inject constructor(
 
     private fun factoryReset(adminCode: String) {
         flow { emit(lockUtilityUseCase.factoryReset(adminCode)) }
+            .catch { e -> showLog("factoryReset exception $e \n") }
+            .map { result ->
+                showLog("Factory reset: $result \n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+    }
+
+    private fun factoryReset() {
+        flow { emit(lockUtilityUseCase.factoryReset()) }
             .catch { e -> showLog("factoryReset exception $e \n") }
             .map { result ->
                 showLog("Factory reset: $result \n")
@@ -2341,7 +2400,9 @@ object TaskCode {
     const val ConnectToWifi = 56
     const val SetOTAUpdate = 57
     const val SetOTACancel = 58
+    const val TogglePlugState = 59
     const val GetFwVersion = 80
     const val FactoryReset = 81
+    const val FactoryResetNoAdmin = 82
     const val Disconnect = 99
 }
