@@ -92,6 +92,8 @@ class HomeViewModel @Inject constructor(
     val hash256V005 = "76FE255B21C7A3B2A7108C7215E543F87A85E93B47EF0CC521ACA958A776AEF0"
     val hash256V008 = "E7DC8DB6ED39CD24A5BEEC3A46BE1109D466B5E9D830C0A41DBEEEC800BCAD01"
 
+    private var adminCode = "0000"
+
     fun init() {
         Timber.d("init")
         collectBluetoothAvailableState()
@@ -226,11 +228,11 @@ class HomeViewModel @Inject constructor(
             }
             // Create Admin code
             TaskCode.CreateAdminCode -> {
-                createAdminCode(code = "0000")
+                createAdminCode(adminCode)
             }
             // Update Admin code
             TaskCode.UpdateAdminCode -> {
-                updateAdminCode(oldCode = "0000", newCode = "1234")
+                updateAdminCode(adminCode, newCode = "1234")
             }
             // Get firmware version
             TaskCode.GetFwVersion -> {
@@ -238,7 +240,7 @@ class HomeViewModel @Inject constructor(
             }
             // Factory reset
             TaskCode.FactoryReset -> {
-                factoryReset("0000")
+                factoryReset(adminCode)
             }
             // Query TokenArray
             TaskCode.QueryTokenArray -> {
@@ -1074,6 +1076,7 @@ class HomeViewModel @Inject constructor(
         flow { emit(adminCodeUseCase.updateAdminCode(oldCode, newCode)) }
             .catch { e -> showLog("updateAdminCode exception $e \n") }
             .map { result ->
+                adminCode = newCode
                 showLog("Update Admin code from \"$oldCode\" to \"$newCode\", result = ${result}\n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
