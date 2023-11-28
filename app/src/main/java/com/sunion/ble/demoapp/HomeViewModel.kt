@@ -90,8 +90,11 @@ class HomeViewModel @Inject constructor(
         "3045022100CE013DE7E4816F0F9D35955879FB34DF2C0CB0BC335E9C4D598B23498C978DE30220401808C3E08E36F899EC36B57944731F48B54300E229EA6ADF181F374763E94E"
     val signatureV008 =
         "3046022100BC8B2E6E479E81680C16CA2AE61FA88D84B063AF8334361D1B01ABA57941AD04022100D7E894B0F4DE3F448CD1E112AE48557F5664D0A686DCFC797233ED3D119851C0"
+    val signatureV012 =
+        "30460221008DA3CFC12FD79DB4E604198AB1ACEB415AF83B20CCD9B689DC5D497969164ABE022100DF11393C059817F87B8102F799E0DE45350F1DBE29E444475F5BAF65BF4107B0"
     val hash256V005 = "76FE255B21C7A3B2A7108C7215E543F87A85E93B47EF0CC521ACA958A776AEF0"
     val hash256V008 = "E7DC8DB6ED39CD24A5BEEC3A46BE1109D466B5E9D830C0A41DBEEEC800BCAD01"
+    val hash256V012 = "A02317A9E4DC5F7F2AD8FA2F8A5C7970B2D710D081BB3BE6C756EBF0458A0A07"
 
     private var adminCode = "0000"
 
@@ -390,7 +393,7 @@ class HomeViewModel @Inject constructor(
             }
             // Set OTA Status
             TaskCode.SetOTAUpdate -> {
-                otaUpdate(currentTarget, signatureV005)
+                otaUpdate(currentTarget, signatureV012)
             }
             // Set OTA Cancel
             TaskCode.SetOTACancel -> {
@@ -2243,6 +2246,9 @@ class HomeViewModel @Inject constructor(
             }
             signatureV008 -> {
                 fileCheck(hash256V008)
+            }
+            signatureV012 -> {
+                fileCheck(hash256V012)
             }
             else -> {
                 false
