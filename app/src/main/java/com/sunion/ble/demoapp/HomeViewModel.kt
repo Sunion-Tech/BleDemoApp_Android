@@ -12,7 +12,6 @@ import com.sunion.core.ble.ReactiveStatefulConnection
 import com.sunion.core.ble.usecase.LockNameUseCase
 import com.sunion.core.ble.entity.*
 import com.sunion.core.ble.exception.LockStatusException
-import com.sunion.core.ble.accessCodeToHex
 import com.sunion.core.ble.toHexString
 import com.sunion.core.ble.unless
 import com.sunion.core.ble.usecase.*
@@ -488,11 +487,11 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
         // connect to device
         viewModelScope.launch {
-            showLog("Connecting to ${_lockConnectionInfo!!.macAddress!!}...")
+            showLog("Connecting to ${_lockConnectionInfo!!.macAddress}...")
             statefulConnection.establishConnection(
-                macAddress = _lockConnectionInfo!!.macAddress!!,
-                keyOne = _lockConnectionInfo!!.keyOne!!,
-                oneTimeToken = _lockConnectionInfo!!.oneTimeToken!!,
+                macAddress = _lockConnectionInfo!!.macAddress,
+                keyOne = _lockConnectionInfo!!.keyOne,
+                oneTimeToken = _lockConnectionInfo!!.oneTimeToken,
                 permanentToken = _lockConnectionInfo!!.permanentToken,
                 isSilentlyFail = false
             )
@@ -537,11 +536,11 @@ class HomeViewModel @Inject constructor(
 
     private fun getDeviceStatus() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(deviceStatusD6UseCase()) }
                     .catch { e -> showLog("getDeviceStatusD6 exception $e \n") }
                     .map { deviceStatus ->
-                        _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
+                        _currentDeviceStatus = DeviceStatus.D6(
                             deviceStatus.config,
                             deviceStatus.lockState,
                             deviceStatus.battery,
@@ -555,11 +554,11 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(deviceStatusA2UseCase()) }
                     .catch { e -> showLog("getDeviceStatusA2 exception $e \n") }
                     .map { deviceStatus ->
-                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                        _currentDeviceStatus = DeviceStatus.A2(
                             deviceStatus.direction,
                             deviceStatus.vacationMode,
                             deviceStatus.deadBolt,
@@ -576,11 +575,11 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusB0 -> {
+            is DeviceStatus.B0 -> {
                 flow { emit(plugConfigUseCase()) }
                     .catch { e -> showLog("getDeviceStatusB0 exception $e \n") }
                     .map { deviceStatus ->
-                        _currentDeviceStatus = DeviceStatus.DeviceStatusB0(
+                        _currentDeviceStatus = DeviceStatus.B0(
                             deviceStatus.setWifi,
                             deviceStatus.connectWifi,
                             deviceStatus.plugState
@@ -598,8 +597,8 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleLockState() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
-                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.DeviceStatusD6
+            is DeviceStatus.D6 -> {
+                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
                 val desiredState = when (deviceStatusD6.lockState) {
                     LockState.LOCKED -> { LockState.UNLOCKED }
                     LockState.UNLOCKED -> { LockState.LOCKED }
@@ -616,7 +615,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("toggleLockState exception $e \n") }
                     .map { deviceStatus ->
                         showLog("Set LockState to ${desiredState}:")
-                        _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
+                        _currentDeviceStatus = DeviceStatus.D6(
                             deviceStatus.config,
                             deviceStatus.lockState,
                             deviceStatus.battery,
@@ -630,8 +629,8 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
-                val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.DeviceStatusA2
+            is DeviceStatus.A2 -> {
+                val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.A2
                 if (deviceStatusA2.direction == BleV2Lock.Direction.UNKNOWN.value) {
                     showLog("Lock direction is not determined. Please set lock direction before toggle lock state.\n")
                     return
@@ -648,7 +647,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("toggleLockState exception $e \n") }
                     .map { deviceStatus ->
                         showLog("Set LockState to $state")
-                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                        _currentDeviceStatus = DeviceStatus.A2(
                             deviceStatus.direction,
                             deviceStatus.vacationMode,
                             deviceStatus.deadBolt,
@@ -671,8 +670,8 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleSecurityBolt() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
-                val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.DeviceStatusA2
+            is DeviceStatus.A2 -> {
+                val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.A2
                 if (deviceStatusA2.securityBolt == BleV2Lock.SecurityBolt.NOT_SUPPORT.value) {
                     showLog("Lock securityBolt is not support.\n")
                     return
@@ -689,7 +688,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("toggleSecurityBolt exception $e \n") }
                     .map { deviceStatus ->
                         showLog("Set security bolt to $state")
-                        _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                        _currentDeviceStatus = DeviceStatus.A2(
                             deviceStatus.direction,
                             deviceStatus.vacationMode,
                             deviceStatus.deadBolt,
@@ -712,7 +711,7 @@ class HomeViewModel @Inject constructor(
 
     private fun getLockConfig() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(lockConfigD4UseCase.query()) }
                     .catch { e -> showLog("getLockConfig exception $e \n") }
                     .map { lockConfig ->
@@ -723,7 +722,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("getLockConfig exception $e \n") }
                     .map { lockConfig ->
@@ -742,8 +741,8 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleKeyPressBeep(soundValue:Int = 0) {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
-                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.DeviceStatusD6
+            is DeviceStatus.D6 -> {
+                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
                 val isSoundOn = when (deviceStatusD6.config.isSoundOn) {
                     true -> { false }
                     false -> { true }
@@ -758,7 +757,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("lockConfigA0UseCase.query() exception $e \n") }
                     .map { lockConfig ->
@@ -783,7 +782,7 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleVirtualCode() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("toggleVirtualCode exception $e \n") }
                     .map { lockConfig ->
@@ -804,7 +803,7 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleTwoFA() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("toggleTwoFA exception $e \n") }
                     .map { lockConfig ->
@@ -824,13 +823,13 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleVacationMode() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
-                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.DeviceStatusD6
+            is DeviceStatus.D6 -> {
+                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
                 val isVacationModeOn = when (deviceStatusD6.config.isVacationModeOn) {
                     true -> { false }
                     false -> { true }
                 }
-                flow { emit(lockConfigD4UseCase.setVactionMode(isVacationModeOn)) }
+                flow { emit(lockConfigD4UseCase.setVacationMode(isVacationModeOn)) }
                     .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .map { result ->
                         showLog("Set vacation mode to ${isVacationModeOn}, result = $result \n")
@@ -840,7 +839,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("toggleVacationMode exception $e \n") }
                     .map { lockConfig ->
@@ -861,8 +860,8 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleGuidingCode() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
-                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.DeviceStatusD6
+            is DeviceStatus.D6 -> {
+                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
                 val isGuidingCodeOn = when (deviceStatusD6.config.isGuidingCodeOn) {
                     true -> { false }
                     false -> { true }
@@ -877,7 +876,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("toggleGuidingCode exception $e \n") }
                     .map { lockConfig ->
@@ -898,8 +897,8 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleAutoLock(autoLockTime: Int) {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
-                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.DeviceStatusD6
+            is DeviceStatus.D6 -> {
+                val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
                 val isAutoLock = when (deviceStatusD6.config.isAutoLock) {
                     true -> { false }
                     false -> { true }
@@ -917,7 +916,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("toggleAutoLock exception $e \n") }
                     .map { lockConfig ->
@@ -939,7 +938,7 @@ class HomeViewModel @Inject constructor(
 
     private fun setLockLocation(latitude: Double, longitude: Double) {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(lockConfigD4UseCase.setLocation(latitude = latitude, longitude = longitude)) }
                     .catch { e -> showLog("setLockLocation exception $e \n") }
                     .map { result ->
@@ -950,7 +949,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.setLocation(latitude = latitude, longitude = longitude)) }
                     .catch { e -> showLog("setLockLocation exception $e \n") }
                     .map { result ->
@@ -969,7 +968,7 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleOperatingSound() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("toggleOperatingSound exception $e \n") }
                     .map { lockConfig ->
@@ -990,7 +989,7 @@ class HomeViewModel @Inject constructor(
 
     private fun toggleShowFastTrackMode() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockConfigA0UseCase.query()) }
                     .catch { e -> showLog("toggleShowFastTrackMode exception $e \n") }
                     .map { lockConfig ->
@@ -1014,8 +1013,8 @@ class HomeViewModel @Inject constructor(
             .catch { e -> showLog("determineLockDirection exception $e \n") }
             .map { deviceStatus ->
                 when (deviceStatus) {
-                    is DeviceStatus.DeviceStatusD6 -> {
-                        _currentDeviceStatus = DeviceStatus.DeviceStatusD6(
+                    is DeviceStatus.D6 -> {
+                        _currentDeviceStatus = DeviceStatus.D6(
                             deviceStatus.config,
                             deviceStatus.lockState,
                             deviceStatus.battery,
@@ -1024,11 +1023,11 @@ class HomeViewModel @Inject constructor(
                         )
                         updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
                     }
-                    is DeviceStatus.DeviceStatusA2 -> {
+                    is DeviceStatus.A2 -> {
                         if(deviceStatus.direction == BleV2Lock.Direction.NOT_SUPPORT.value) {
                             throw LockStatusException.LockFunctionNotSupportException()
                         } else {
-                            _currentDeviceStatus = DeviceStatus.DeviceStatusA2(
+                            _currentDeviceStatus = DeviceStatus.A2(
                                 deviceStatus.direction,
                                 deviceStatus.vacationMode,
                                 deviceStatus.deadBolt,
@@ -1115,8 +1114,8 @@ class HomeViewModel @Inject constructor(
 
     private fun togglePlugState() {
         when (_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusB0 -> {
-                val deviceStatusB0 = _currentDeviceStatus as DeviceStatus.DeviceStatusB0
+            is DeviceStatus.B0 -> {
+                val deviceStatusB0 = _currentDeviceStatus as DeviceStatus.B0
                 val plugState =
                     if (deviceStatusB0.plugState == BleV2Lock.PlugState.POWER_ON.value) {
                         BleV2Lock.PlugState.POWER_OFF.value
@@ -1257,7 +1256,7 @@ class HomeViewModel @Inject constructor(
 
     private fun getAccessCodeArray(){
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
                     .catch { e -> showLog("getAccessCodeArray exception $e \n") }
                     .map { accessCodeArray ->
@@ -1268,7 +1267,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1293,7 +1292,7 @@ class HomeViewModel @Inject constructor(
 
     private fun queryAccessCode(){
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
                     .catch { e -> showLog("getAccessCodeArray exception $e \n") }
                     .map { list ->
@@ -1310,7 +1309,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1353,7 +1352,7 @@ class HomeViewModel @Inject constructor(
         val index = 1
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(lockAccessCodeUseCase.addAccessCode(index, isEnabled, name, code, scheduleType)) }
                     .catch { e -> showLog("addAccessCode exception $e \n") }
                     .map { result ->
@@ -1364,7 +1363,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1394,7 +1393,7 @@ class HomeViewModel @Inject constructor(
         val index = 1
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(lockAccessCodeUseCase.editAccessCode(index, isEnabled, name, code, scheduleType)) }
                     .catch { e -> showLog("editAccessCode exception $e \n") }
                     .map { result ->
@@ -1405,7 +1404,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1430,7 +1429,7 @@ class HomeViewModel @Inject constructor(
 
     private fun deleteAccessCode(index: Int) {
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusD6 -> {
+            is DeviceStatus.D6 -> {
                 flow { emit(lockAccessCodeUseCase.deleteAccessCode(index)) }
                     .catch { e -> showLog("deleteAccessCode exception $e \n") }
                     .map { result ->
@@ -1441,7 +1440,7 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1466,7 +1465,7 @@ class HomeViewModel @Inject constructor(
 
     private fun getAccessCardArray(){
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1491,7 +1490,7 @@ class HomeViewModel @Inject constructor(
 
     private fun queryAccessCard(){
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1535,7 +1534,7 @@ class HomeViewModel @Inject constructor(
         val index = 2
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1565,7 +1564,7 @@ class HomeViewModel @Inject constructor(
         val index = 2
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1590,7 +1589,7 @@ class HomeViewModel @Inject constructor(
 
     private fun deleteAccessCard(index: Int) {
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1615,7 +1614,7 @@ class HomeViewModel @Inject constructor(
 
     private fun deviceGetAccessCard(){
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1640,7 +1639,7 @@ class HomeViewModel @Inject constructor(
 
     private fun getFingerprintArray(){
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1665,7 +1664,7 @@ class HomeViewModel @Inject constructor(
 
     private fun queryFingerprint(){
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1708,12 +1707,12 @@ class HomeViewModel @Inject constructor(
         val index = 3
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name, code.accessCodeToHex())
+                            val isSuccess = lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name)
                             showLog("addFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1738,12 +1737,12 @@ class HomeViewModel @Inject constructor(
         val index = 3
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.fingerprintQuantity != BleV2Lock.FingerprintQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name, code.accessCodeToHex())
+                            val isSuccess = lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name)
                             showLog("editFingerprint index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1763,7 +1762,7 @@ class HomeViewModel @Inject constructor(
 
     private fun deleteFingerprint(index: Int) {
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1788,7 +1787,7 @@ class HomeViewModel @Inject constructor(
 
     private fun deviceGetFingerprint(){
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1813,7 +1812,7 @@ class HomeViewModel @Inject constructor(
 
     private fun getFaceArray(){
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1838,7 +1837,7 @@ class HomeViewModel @Inject constructor(
 
     private fun queryFace(){
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1881,12 +1880,12 @@ class HomeViewModel @Inject constructor(
         val index = 4
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.addFace(index, isEnabled, scheduleType, name, code.accessCodeToHex())
+                            val isSuccess = lockAccessUseCase.addFace(index, isEnabled, scheduleType, name)
                             showLog("addFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1911,12 +1910,12 @@ class HomeViewModel @Inject constructor(
         val index = 4
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
                         if(result.faceQuantity != BleV2Lock.FaceQuantity.NOT_SUPPORT.value) {
-                            val isSuccess = lockAccessUseCase.editFace(index, isEnabled, scheduleType, name, code.accessCodeToHex())
+                            val isSuccess = lockAccessUseCase.editFace(index, isEnabled, scheduleType, name)
                             showLog("editFace index:$index isEnabled:$isEnabled name:$name code:$code scheduleType:$scheduleType \nisSuccess= $isSuccess\n")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -1936,7 +1935,7 @@ class HomeViewModel @Inject constructor(
 
     private fun deleteFace(index: Int) {
         when(_currentDeviceStatus) {
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -1961,7 +1960,7 @@ class HomeViewModel @Inject constructor(
 
     private fun deviceGetFace(){
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
@@ -2025,7 +2024,7 @@ class HomeViewModel @Inject constructor(
 
     private fun getLockSupportedUnlockTypes() {
         when(_currentDeviceStatus){
-            is DeviceStatus.DeviceStatusA2 -> {
+            is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e \n") }
                     .map { result ->
