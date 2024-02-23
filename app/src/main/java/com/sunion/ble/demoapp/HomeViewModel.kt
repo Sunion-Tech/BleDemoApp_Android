@@ -245,6 +245,14 @@ class HomeViewModel @Inject constructor(
             TaskCode.GetFwVersion -> {
                 getFirmwareVersion()
             }
+            // Get RF version
+            TaskCode.GetRfVersion -> {
+                getRfVersion()
+            }
+            // Get MCU version
+            TaskCode.GetMcuVersion -> {
+                getMcuVersion()
+            }
             // Factory reset
             TaskCode.FactoryReset -> {
                 factoryReset(adminCode)
@@ -372,6 +380,10 @@ class HomeViewModel @Inject constructor(
             // Get Event
             TaskCode.GetEvent -> {
                 getEvent()
+            }
+            // Get Event By Address
+            TaskCode.GetEventByAddress -> {
+                getEventByAddress(0)
             }
             // Delete Event
             TaskCode.DeleteEvent -> {
@@ -1156,6 +1168,30 @@ class HomeViewModel @Inject constructor(
             .catch { e -> showLog("getFirmwareVersion exception $e \n") }
             .map { version ->
                 showLog("Get firmware version: $version \n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+    }
+
+    private fun getRfVersion() {
+        flow { emit(lockUtilityUseCase.getFirmwareVersion(1)) }
+            .catch { e -> showLog("getFirmwareVersion exception $e \n") }
+            .map { version ->
+                showLog("Get RF version: $version \n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+    }
+
+    private fun getMcuVersion() {
+        flow { emit(lockUtilityUseCase.getFirmwareVersion(0)) }
+            .catch { e -> showLog("getMcuVersion exception $e \n") }
+            .map { version ->
+                showLog("Get MCU version: $version \n")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -2010,6 +2046,18 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    private fun getEventByAddress(offset : Int){
+        flow { emit(lockEventLogUseCase.getEventByAddress(offset)) }
+            .catch { e -> showLog("getEventByAddress exception $e \n") }
+            .map { result ->
+                showLog("getEventByAddress offset[$offset] \neventLog: $result\n")
+            }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+    }
+
     private fun deleteEvent(index: Int){
         flow { emit(lockEventLogUseCase.deleteEvent(index)) }
             .catch { e -> showLog("deleteEvent exception $e \n") }
@@ -2409,5 +2457,8 @@ object TaskCode {
     const val GetFwVersion = 80
     const val FactoryReset = 81
     const val FactoryResetNoAdmin = 82
+    const val GetRfVersion = 83
+    const val GetMcuVersion = 84
+    const val GetEventByAddress = 85
     const val Disconnect = 99
 }

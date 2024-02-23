@@ -98,6 +98,7 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.DeviceGetFace to "Device get face",
         TaskCode.GetEventQuantity to "Get event quantity",
         TaskCode.GetEvent to "Get event",
+        TaskCode.GetEventByAddress to "Get event by address",
         TaskCode.DeleteEvent to "Delete event",
         TaskCode.GetLockSupportedUnlockTypes to "Get lock supported unlock types",
         TaskCode.ScanWifi to "Scan wifi",
@@ -108,6 +109,8 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         TaskCode.GetFwVersion to "Get firmware version",
         TaskCode.FactoryReset to "Factory reset",
         TaskCode.FactoryResetNoAdmin to "Factory reset no admin",
+        TaskCode.GetRfVersion to "Get RF version",
+        TaskCode.GetMcuVersion to "Get MCU version",
         TaskCode.Disconnect to "Disconnect"
     )
 
