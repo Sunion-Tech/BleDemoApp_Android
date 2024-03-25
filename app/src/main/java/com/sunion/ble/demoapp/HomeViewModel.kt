@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sunion.core.ble.usecase.LockQRCodeUseCase
 import com.sunion.core.ble.ReactiveStatefulConnection
+import com.sunion.core.ble.accessCodeToHex
 import com.sunion.core.ble.usecase.LockNameUseCase
 import com.sunion.core.ble.entity.*
 import com.sunion.core.ble.exception.LockStatusException
@@ -53,6 +54,7 @@ class HomeViewModel @Inject constructor(
     private val plugConfigUseCase: PlugConfigUseCase,
     private val deviceStatus82UseCase: DeviceStatus82UseCase,
     private val lockConfig80UseCase: LockConfig80UseCase,
+    private val lockUserUseCase: LockUserUseCase,
     private val application: Application
 ): ViewModel() {
     private val _uiState = MutableStateFlow(UiState())
@@ -397,6 +399,22 @@ class HomeViewModel @Inject constructor(
             TaskCode.DeviceGetFace -> {
                 deviceGetFace()
             }
+            // Add Credential Finger Vein
+            TaskCode.AddCredentialFingerVein -> {
+                addCredentialFingerVein()
+            }
+            // Edit Credential Finger Vein
+            TaskCode.EditCredentialFingerVein -> {
+                editCredentialFingerVein()
+            }
+            // Delete Credential Finger Vein
+            TaskCode.DeleteCredentialFingerVein -> {
+                deleteCredentialFingerVein()
+            }
+            // Device Get Credential Finger Vein
+            TaskCode.DeviceGetCredentialFingerVein -> {
+                deviceGetCredentialFingerVein()
+            }
             // Get Event Quantity
             TaskCode.GetEventQuantity -> {
                 getEventQuantity()
@@ -416,6 +434,90 @@ class HomeViewModel @Inject constructor(
             // Get Lock Supported Unlock Types
             TaskCode.GetLockSupportedUnlockTypes -> {
                 getLockSupportedUnlockTypes()
+            }
+            // Query User Ability
+            TaskCode.QueryUserAbility -> {
+                queryUserAbility()
+            }
+            // Query User Count
+            TaskCode.QueryUserCount -> {
+                queryUserCount()
+            }
+            // Is Matter Device
+            TaskCode.IsMatterDevice -> {
+                isMatterDevice()
+            }
+            // Get User Array
+            TaskCode.GetUserArray -> {
+                getUserArray()
+            }
+            // Get User
+            TaskCode.GetUser -> {
+                getUser()
+            }
+            // Add User
+            TaskCode.AddUser -> {
+                addUser()
+            }
+            // Edit User
+            TaskCode.EditUser -> {
+                editUser()
+            }
+            // Delete User
+            TaskCode.DeleteUser -> {
+                deleteUser(0)
+            }
+            // Get Credential Array
+            TaskCode.GetCredentialArray -> {
+                getCredentialArray()
+            }
+            // Get Credential By Credential
+            TaskCode.GetCredentialByCredential -> {
+                getCredentialByCredential()
+            }
+            // Get Credential By User
+            TaskCode.GetCredentialByUser -> {
+                getCredentialByUser()
+            }
+            // Get Credential Hash
+            TaskCode.GetCredentialHash -> {
+                getCredentialHash()
+            }
+            // Get User Hash
+            TaskCode.GetUserHash -> {
+                getUserHash()
+            }
+            // Has Unsynced Data
+            TaskCode.HasUnsyncedData -> {
+                hasUnsyncedData()
+            }
+            // Get Unsynced Data
+            TaskCode.GetUnsyncedData -> {
+                getUnsyncedData()
+            }
+            // Set User Unsynced Data
+            TaskCode.SetUserUnsyncedData -> {
+                setUserUnsyncedData()
+            }
+            // Set Credential Unsynced Data
+            TaskCode.SetCredentialUnsyncedData -> {
+                setCredentialUnsyncedData()
+            }
+            // Set Log Unsynced Data
+            TaskCode.SetLogUnsyncedData -> {
+                setLogUnsyncedData()
+            }
+            // Set Token Unsynced Data
+            TaskCode.SetTokenUnsyncedData -> {
+                setTokenUnsyncedData()
+            }
+            // Set Setting Unsynced Data
+            TaskCode.SetSettingUnsyncedData -> {
+                setSettingUnsyncedData()
+            }
+            // Set All Data Synced
+            TaskCode.SetAllDataSynced -> {
+                setAllDataSynced()
             }
             // Scan Wifi
             TaskCode.ScanWifi -> {
@@ -1766,9 +1868,7 @@ class HomeViewModel @Inject constructor(
                 flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { list ->
-                        val indexIterable = list
-                            .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                            .filter { index -> index != -1 }
+                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
                         indexIterable.forEach { index ->
                             val accessCode = lockAccessCodeUseCase.queryAccessCode(index)
                             showLog("$functionName[$index] is access code: $accessCode")
@@ -1785,9 +1885,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if (result.accessCodeQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getAccessCodeArray()
-                            val indexIterable = list.subList(0, list.size - 2)
-                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                .filter { index -> index != -1 }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
@@ -1803,7 +1901,7 @@ class HomeViewModel @Inject constructor(
                             }
                         }
                     }
-                    .catch { e -> showLog("queryAccessCode exception $e") }
+                    .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
@@ -1844,6 +1942,20 @@ class HomeViewModel @Inject constructor(
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.addCredentialCode(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -1893,6 +2005,20 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.editCredentialCode(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("$functionName not support.")
             }
@@ -1923,6 +2049,18 @@ class HomeViewModel @Inject constructor(
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index result: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -1971,9 +2109,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if (result.accessCardQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getAccessCardArray()
-                            val indexIterable = list.subList(0, list.size - 2)
-                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                .filter { index -> index != -1 }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
@@ -2027,6 +2163,20 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.addCredentialCard(index, credentialStatus, userIndex, code)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("$functionName not support.")
             }
@@ -2051,6 +2201,20 @@ class HomeViewModel @Inject constructor(
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.editCredentialCard(index, credentialStatus, userIndex, code)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2084,6 +2248,18 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("$functionName not support.")
             }
@@ -2092,17 +2268,30 @@ class HomeViewModel @Inject constructor(
 
     private fun deviceGetAccessCard(){
         val functionName = ::deviceGetAccessCard.name
+        val index = 6
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
                     .map { result ->
                         if(result.accessCardQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deviceGetAccessCard(5)
+                            val isSuccess = lockAccessUseCase.deviceGetAccessCard(index)
                             showLog("$functionName: $isSuccess")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deviceGetCredentialCard(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2151,9 +2340,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if(result.fingerprintQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getFingerprintArray()
-                            val indexIterable = list.subList(0, list.size - 2)
-                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                .filter { index -> index != -1 }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
@@ -2206,6 +2393,20 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.addCredentialFingerPrint(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("$functionName not support.")
             }
@@ -2230,6 +2431,20 @@ class HomeViewModel @Inject constructor(
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.editCredentialFingerPrint(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2263,6 +2478,18 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("$functionName not support.")
             }
@@ -2271,17 +2498,30 @@ class HomeViewModel @Inject constructor(
 
     private fun deviceGetFingerprint(){
         val functionName = ::deviceGetFingerprint.name
+        val index = 6
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
                     .map { result ->
                         if(result.fingerprintQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deviceGetFingerprint(5)
+                            val isSuccess = lockAccessUseCase.deviceGetFingerprint(index)
                             showLog("$functionName: $isSuccess")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deviceGetCredentialFingerprint(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2330,9 +2570,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if (result.faceQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getFaceArray()
-                            val indexIterable = list.subList(0, list.size - 2)
-                                .mapIndexed { index, boolean -> if (boolean && index != 0) index else -1 }
-                                .filter { index -> index != -1 }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
@@ -2385,6 +2623,20 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.addCredentialFace(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("$functionName not support.")
             }
@@ -2409,6 +2661,20 @@ class HomeViewModel @Inject constructor(
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+                val userIndex = 0
+                flow { emit(lockUserUseCase.editCredentialFace(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2442,6 +2708,18 @@ class HomeViewModel @Inject constructor(
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
             }
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
             else -> {
                 showLog("$functionName not support.")
             }
@@ -2450,17 +2728,124 @@ class HomeViewModel @Inject constructor(
 
     private fun deviceGetFace(){
         val functionName = ::deviceGetFace.name
+        val index = 6
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
                     .map { result ->
                         if(result.faceQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deviceGetFace(5)
+                            val isSuccess = lockAccessUseCase.deviceGetFace(index)
                             showLog("$functionName: $isSuccess")
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deviceGetCredentialFace(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun addCredentialFingerVein() {
+        val functionName = ::addCredentialFingerVein.name
+        val index = 5
+        val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+        val userIndex = 0
+        val code = "0"
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.addCredentialFingerVein(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun editCredentialFingerVein() {
+        val functionName = ::editCredentialFingerVein.name
+        val index = 5
+        val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+        val userIndex = 0
+        val code = "40"
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.editCredentialFingerVein(index, credentialStatus, userIndex, code.accessCodeToHex())) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun deleteCredentialFingerVein() {
+        val functionName = ::deleteCredentialFingerVein.name
+        val index = 5
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun deviceGetCredentialFingerVein(){
+        val functionName = ::deviceGetCredentialFingerVein.name
+        val index = 6
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deviceGetCredentialFingerVein(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2538,6 +2923,472 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         showLog("$functionName result: $result")
                     }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun queryUserAbility() {
+        val functionName = ::queryUserAbility.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUtilityUseCase.queryUserAbility()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun queryUserCount() {
+        val functionName = ::queryUserCount.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUtilityUseCase.queryUserCount()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun isMatterDevice() {
+        val functionName = ::isMatterDevice.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUtilityUseCase.isMatterDevice()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getUserArray() {
+        val functionName = ::getUserArray.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getUserArray()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getUser() {
+        val functionName = ::getUser.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getUserArray()) }
+                    .catch { e -> showLog("$functionName array exception $e") }
+                    .map { list ->
+                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                        Timber.d("indexIterable: $indexIterable")
+                        indexIterable.forEach { index ->
+                            val user = lockUserUseCase.queryUser(index)
+                            showLog("$functionName[$index] result: $user")
+                        }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun addUser() {
+        val functionName = ::addUser.name
+        val name = "Tom"
+        val index = 0
+        val uid = index
+        val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+        val userType = BleV3Lock.UserType.UNRESTRICTED.value
+        val credentialRule = BleV3Lock.CredentialRule.SINGLE.value
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.addUser(index, name, uid, userStatus, userType, credentialRule)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName name: $name index: $index uid: $uid userStatus: $userStatus userType: $userType credentialRule: $credentialRule\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun editUser() {
+        val functionName = ::editUser.name
+        val name = "Tom2"
+        val index = 0
+        val uid = index
+        val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
+        val userType = BleV3Lock.UserType.DISPOSABLE.value
+        val credentialRule = BleV3Lock.CredentialRule.SINGLE.value
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.editUser(index, name, uid, userStatus, userType, credentialRule)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName name: $name index: $index uid: $uid userStatus: $userStatus userType: $userType credentialRule: $credentialRule\nresult: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun deleteUser(index: Int){
+        val functionName = ::deleteUser.name
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.deleteUser(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getCredentialArray() {
+        val functionName = ::getCredentialArray.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getCredentialArray()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getCredentialByCredential() {
+        val functionName = ::getCredentialByCredential.name
+        val index = 0
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getCredentialByCredential(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map {
+                        showLog("$functionName credential[$index] result: $it")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getCredentialByUser() {
+        val functionName = ::getCredentialByUser.name
+        val index = 0
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getCredentialByUser(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map {
+                        showLog("$functionName user[$index] result: $it")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getCredentialHash() {
+        val functionName = ::getCredentialHash.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getCredentialHash()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getUserHash() {
+        val functionName = ::getUserHash.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getUserHash()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun hasUnsyncedData() {
+        val functionName = ::hasUnsyncedData.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.hasUnsyncedData()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun getUnsyncedData() {
+        val functionName = ::getUnsyncedData.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.getUnsyncedData()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun setUserUnsyncedData() {
+        val functionName = ::setUserUnsyncedData.name
+        val type = BleV3Lock.UnsyncedDataType.USER.value
+        val time = System.currentTimeMillis()
+        val index = 0
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.setUserUnsyncedData(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun setCredentialUnsyncedData() {
+        val functionName = ::setCredentialUnsyncedData.name
+        val type = BleV3Lock.UnsyncedDataType.CREDENTIAL.value
+        val time = System.currentTimeMillis()
+        val index = 0
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.setCredentialUnsyncedData(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun setLogUnsyncedData() {
+        val functionName = ::setLogUnsyncedData.name
+        val type = BleV3Lock.UnsyncedDataType.LOG.value
+        val time = System.currentTimeMillis()
+        val index = 0
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.setLogUnsyncedData(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun setTokenUnsyncedData() {
+        val functionName = ::setTokenUnsyncedData.name
+        val type = BleV3Lock.UnsyncedDataType.TOKEN.value
+        val time = System.currentTimeMillis()
+        val index = 0
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.setTokenUnsyncedData(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun setSettingUnsyncedData() {
+        val functionName = ::setSettingUnsyncedData.name
+        val type = BleV3Lock.UnsyncedDataType.SETTING.value
+        val time = System.currentTimeMillis()
+        val index = 0
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.setSettingUnsyncedData(index)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun setAllDataSynced() {
+        val functionName = ::setAllDataSynced.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockUserUseCase.setAllDataSynced()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
                     .flowOn(Dispatchers.IO)
@@ -2927,11 +3778,36 @@ object TaskCode {
     const val AutoUnlockToggleLockState = 62
     const val AutoUnlockToggleSecurityBolt = 63
     const val GetEventByAddress = 64
-    const val GetFwVersion = 80
-    const val GetRfVersion = 81
-    const val GetMcuVersion = 82
-    const val FactoryReset = 83
-    const val FactoryResetNoAdmin = 84
-    const val Restart = 85
+    const val AddCredentialFingerVein = 65
+    const val EditCredentialFingerVein = 66
+    const val DeleteCredentialFingerVein = 67
+    const val DeviceGetCredentialFingerVein = 68
+    const val QueryUserAbility = 69
+    const val QueryUserCount = 70
+    const val IsMatterDevice = 71
+    const val GetUserArray = 72
+    const val GetUser = 73
+    const val AddUser = 74
+    const val EditUser = 75
+    const val DeleteUser = 76
+    const val GetCredentialArray = 77
+    const val GetCredentialByCredential = 78
+    const val GetCredentialByUser = 79
+    const val GetCredentialHash = 80
+    const val GetUserHash = 81
+    const val HasUnsyncedData = 82
+    const val GetUnsyncedData = 83
+    const val SetUserUnsyncedData = 84
+    const val SetCredentialUnsyncedData = 85
+    const val SetLogUnsyncedData = 86
+    const val SetTokenUnsyncedData = 87
+    const val SetSettingUnsyncedData = 88
+    const val SetAllDataSynced = 89
+    const val GetFwVersion = 90
+    const val GetRfVersion = 91
+    const val GetMcuVersion = 92
+    const val FactoryReset = 93
+    const val FactoryResetNoAdmin = 94
+    const val Restart = 95
     const val Disconnect = 99
 }
