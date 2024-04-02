@@ -1938,7 +1938,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if (result.accessCodeQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getAccessCodeArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
@@ -2196,7 +2196,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if (result.accessCardQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getAccessCardArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
@@ -2451,7 +2451,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if(result.fingerprintQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getFingerprintArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
@@ -2703,7 +2703,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         if (result.faceQuantity.isSupport2Byte()) {
                             val list = lockAccessUseCase.getFaceArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
                             Timber.d("indexIterable: $indexIterable")
                             indexIterable
                         } else {
