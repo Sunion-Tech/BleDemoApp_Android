@@ -24,6 +24,8 @@ android {
         Properties properties = new Properties()
         properties.load(project.rootProject.file('local.properties').newDataInputStream()) // load local.properties
         buildConfigField "String", 'BARCODE_KEY', properties.getProperty('BARCODE_KEY')
+        buildConfigField "String", 'API_GATEWAY_ENDPOINT', properties.getProperty("API_GATEWAY_ENDPOINT")
+        buildConfigField "String", 'API_KEY', properties.getProperty("API_KEY")
     }
 
     buildTypes {
@@ -101,4 +103,12 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.0'
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:1.2.1"
     debugImplementation "androidx.compose.ui:ui-test-manifest:1.2.1"
+
+    // Http client
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation "com.squareup.okhttp3:logging-interceptor:4.9.1"
+
+    // RxJava
+    implementation "com.squareup.retrofit2:adapter-rxjava2:2.9.0"
 }
