@@ -57,6 +57,8 @@ class HomeViewModel @Inject constructor(
     private val deviceStatus82UseCase: DeviceStatus82UseCase,
     private val lockConfig80UseCase: LockConfig80UseCase,
     private val lockUserUseCase: LockUserUseCase,
+    private val lockCredentialUseCase: LockCredentialUseCase,
+    private val lockDataUseCase: LockDataUseCase,
     private val deviceApiRepository: DeviceApiRepository,
     private val bleScanUseCase: BleScanUseCase,
     private val application: Application,
@@ -2017,10 +2019,10 @@ class HomeViewModel @Inject constructor(
                     return
                 }
                 if(userAbility!!.isMatter){
-                    flow { emit(lockUserUseCase.getCredentialByUser(lastUserIndex)) }
+                    flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
                         .catch { e -> showLog("$functionName exception $e") }
                 }
-                flow { emit(lockUserUseCase.addCredentialCode(index, credentialStatus, userIndex, code)) }
+                flow { emit(lockCredentialUseCase.addCredentialCode(index, credentialStatus, userIndex, code)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
@@ -2080,7 +2082,7 @@ class HomeViewModel @Inject constructor(
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
-                flow { emit(lockUserUseCase.editCredentialCode(index, credentialStatus, userIndex, code)) }
+                flow { emit(lockCredentialUseCase.editCredentialCode(index, credentialStatus, userIndex, code)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
@@ -2135,7 +2137,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index result: $result")
@@ -2261,7 +2263,7 @@ class HomeViewModel @Inject constructor(
                     queryUserAbility()
                     return
                 }
-                flow { emit(lockUserUseCase.addCredentialCard(index, credentialStatus, userIndex, code)) }
+                flow { emit(lockCredentialUseCase.addCredentialCard(index, credentialStatus, userIndex, code)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: ${code.accessByteArrayToString()}\nresult: $result")
@@ -2310,7 +2312,7 @@ class HomeViewModel @Inject constructor(
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
-                flow { emit(lockUserUseCase.editCredentialCard(index, credentialStatus, userIndex, code)) }
+                flow { emit(lockCredentialUseCase.editCredentialCard(index, credentialStatus, userIndex, code)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: ${code.accessByteArrayToString()}\nresult: $result")
@@ -2351,7 +2353,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index result: $result")
@@ -2394,7 +2396,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deviceGetCredentialCard(index)) }
+                flow { emit(lockCredentialUseCase.deviceGetCredentialCard(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName: $result")
@@ -2514,7 +2516,7 @@ class HomeViewModel @Inject constructor(
                     queryUserAbility()
                     return
                 }
-                flow { emit(lockUserUseCase.addCredentialFingerPrint(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.addCredentialFingerPrint(index, credentialStatus, userIndex)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -2562,7 +2564,7 @@ class HomeViewModel @Inject constructor(
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
-                flow { emit(lockUserUseCase.editCredentialFingerPrint(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.editCredentialFingerPrint(index, credentialStatus, userIndex)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -2603,7 +2605,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         if(result){
@@ -2646,7 +2648,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deviceGetCredentialFingerprint(index)) }
+                flow { emit(lockCredentialUseCase.deviceGetCredentialFingerprint(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName: $result")
@@ -2766,7 +2768,7 @@ class HomeViewModel @Inject constructor(
                     queryUserAbility()
                     return
                 }
-                flow { emit(lockUserUseCase.addCredentialFace(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.addCredentialFace(index, credentialStatus, userIndex)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -2814,7 +2816,7 @@ class HomeViewModel @Inject constructor(
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
-                flow { emit(lockUserUseCase.editCredentialFace(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.editCredentialFace(index, credentialStatus, userIndex)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -2855,7 +2857,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index result: $result")
@@ -2898,7 +2900,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deviceGetCredentialFace(index)) }
+                flow { emit(lockCredentialUseCase.deviceGetCredentialFace(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName: $result")
@@ -2927,7 +2929,7 @@ class HomeViewModel @Inject constructor(
                     queryUserAbility()
                     return
                 }
-                flow { emit(lockUserUseCase.addCredentialFingerVein(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.addCredentialFingerVein(index, credentialStatus, userIndex)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -2955,7 +2957,7 @@ class HomeViewModel @Inject constructor(
         val userIndex = lastUserIndex
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.editCredentialFingerVein(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.editCredentialFingerVein(index, credentialStatus, userIndex)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -2976,7 +2978,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::deleteCredentialFingerVein.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deleteCredential(index)) }
+                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index result: $result")
@@ -3002,7 +3004,7 @@ class HomeViewModel @Inject constructor(
         val index = lastFingerVeinIndex + 2
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deviceGetCredentialFingerVein(index)) }
+                flow { emit(lockCredentialUseCase.deviceGetCredentialFingerVein(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName: $result")
@@ -3373,7 +3375,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::getCredentialArray.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getCredentialArray()) }
+                flow { emit(lockCredentialUseCase.getCredentialArray()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         result.forEachIndexed { index, value ->
@@ -3399,7 +3401,7 @@ class HomeViewModel @Inject constructor(
         val index = lastCredentialIndex
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getCredentialByCredential(index)) }
+                flow { emit(lockCredentialUseCase.getCredentialByCredential(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map {
                         showLog("$functionName credential[$index] result: $it")
@@ -3421,7 +3423,7 @@ class HomeViewModel @Inject constructor(
         val index = lastUserIndex
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getCredentialByUser(index)) }
+                flow { emit(lockCredentialUseCase.getCredentialByUser(index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map {
                         showLog("$functionName user[$index] result: $it")
@@ -3442,7 +3444,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::getCredentialHash.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getCredentialHash()) }
+                flow { emit(lockDataUseCase.getCredentialHash()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3463,7 +3465,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::getUserHash.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getUserHash()) }
+                flow { emit(lockDataUseCase.getUserHash()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3484,7 +3486,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::hasUnsyncedData.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.hasUnsyncedData()) }
+                flow { emit(lockDataUseCase.hasUnsyncedData()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3505,7 +3507,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::getUnsyncedData.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getUnsyncedData()) }
+                flow { emit(lockDataUseCase.getUnsyncedData()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         lastUnsyncedData = result
@@ -3531,7 +3533,7 @@ class HomeViewModel @Inject constructor(
         }
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.setUserUnsyncedData(lastUnsyncedData!!.index)) }
+                flow { emit(lockDataUseCase.setUserUnsyncedData(lastUnsyncedData!!.index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3556,7 +3558,7 @@ class HomeViewModel @Inject constructor(
         }
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.setCredentialUnsyncedData(lastUnsyncedData!!.index)) }
+                flow { emit(lockDataUseCase.setCredentialUnsyncedData(lastUnsyncedData!!.index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3581,7 +3583,7 @@ class HomeViewModel @Inject constructor(
         }
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.setLogUnsyncedData(lastUnsyncedData!!.index)) }
+                flow { emit(lockDataUseCase.setLogUnsyncedData(lastUnsyncedData!!.index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3606,7 +3608,7 @@ class HomeViewModel @Inject constructor(
         }
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.setTokenUnsyncedData(lastUnsyncedData!!.index)) }
+                flow { emit(lockDataUseCase.setTokenUnsyncedData(lastUnsyncedData!!.index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3631,7 +3633,7 @@ class HomeViewModel @Inject constructor(
         }
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.setSettingUnsyncedData(lastUnsyncedData!!.index)) }
+                flow { emit(lockDataUseCase.setSettingUnsyncedData(lastUnsyncedData!!.index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3652,7 +3654,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::setAllDataSynced.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.setAllDataSynced()) }
+                flow { emit(lockDataUseCase.setAllDataSynced()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
