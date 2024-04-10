@@ -83,7 +83,7 @@ dependencies {
     implementation "com.jakewharton.timber:timber:$timber_version"
 
     // RxAndroidBLE
-    implementation "com.polidea.rxandroidble2:rxandroidble:1.16.0"
+    implementation "com.polidea.rxandroidble2:rxandroidble:1.18.1"
 
     // Qrcode
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
