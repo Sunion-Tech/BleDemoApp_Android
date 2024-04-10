@@ -33,6 +33,7 @@ import com.sunion.ble.demoapp.ui.component.EnableBluetoothDialog
 import com.sunion.ble.demoapp.ui.component.IKeyDivider
 import com.sunion.ble.demoapp.ui.component.LoadingScreen
 import com.sunion.ble.demoapp.ui.theme.AppTheme
+import com.sunion.core.ble.entity.BleDeviceFeature
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -44,105 +45,6 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
     val context = LocalContext.current
     val uiState = viewModel.uiState.collectAsState().value
     val logList = viewModel.logList.collectAsState().value
-    val taskList: Array<Pair<Int, String>> = arrayOf(
-        TaskCode.Connect to "Connect",
-        TaskCode.GetDeviceStatus to "Get DeviceStatus",
-        TaskCode.ToggleLockState to "Toggle lock state",
-        TaskCode.AutoUnlockToggleLockState to "Auto unlock toggle lock state",
-        TaskCode.GetLockTime to "Get lock time",
-        TaskCode.SetLockTime to "Set lock time",
-        TaskCode.GetLockTimeZone to "Get lock timeZone",
-        TaskCode.SetLockTimeZone to "Set lock timeZone",
-        TaskCode.GetLockName to "Get lock name",
-        TaskCode.SetLockName to "Set lock name",
-        TaskCode.IsAdminCodeExists to "Is Admin code exists",
-        TaskCode.CreateAdminCode to "Create Admin code",
-        TaskCode.UpdateAdminCode to "Update Admin code",
-        TaskCode.DetermineLockDirection to "Determine lock direction",
-        TaskCode.GetLockConfig to "Get lock config",
-        TaskCode.ToggleKeyPressBeep to "Toggle key press beep",
-        TaskCode.ToggleVacationMode to "Toggle vacation mode",
-        TaskCode.ToggleGuidingCode to "Toggle guiding code",
-        TaskCode.ToggleAutoLock to "Toggle auto lock",
-        TaskCode.SetLockLocation to "Set lock location",
-        TaskCode.ToggleSecurityBolt to "Toggle security bolt",
-        TaskCode.AutoUnlockToggleSecurityBolt to "Auto unlock toggle security bolt",
-        TaskCode.ToggleVirtualCode to "Toggle virtual code",
-        TaskCode.ToggleTwoFA to "Toggle twoFA",
-        TaskCode.ToggleOperatingSound to "Toggle operating sound",
-        TaskCode.ToggleShowFastTrackMode to "Toggle show fast track mode",
-        TaskCode.ToggleSabbathMode to "Toggle Sabbath mode",
-        TaskCode.QueryTokenArray to "Query token array",
-        TaskCode.QueryToken to "Query token",
-        TaskCode.AddOneTimeToken to "Add one time token",
-        TaskCode.EditToken to "Edit token",
-        TaskCode.DeleteToken to "Delete token",
-        TaskCode.GetAccessCodeArray to "Get access code array",
-        TaskCode.QueryAccessCode to "Query access code",
-        TaskCode.AddAccessCode to "Add access code",
-        TaskCode.EditAccessCode to "Edit access code",
-        TaskCode.DeleteAccessCode to "Delete access code",
-        TaskCode.GetAccessCardArray to "Get access card array",
-        TaskCode.QueryAccessCard to "Query access card",
-        TaskCode.AddAccessCard to "Add access card",
-        TaskCode.EditAccessCard to "Edit access card",
-        TaskCode.DeleteAccessCard to "Delete access card",
-        TaskCode.DeviceGetAccessCard to "Device get access card",
-        TaskCode.GetFingerprintArray to "Get fingerprint array",
-        TaskCode.QueryFingerprint to "Query fingerprint",
-        TaskCode.AddFingerprint to "Add fingerprint",
-        TaskCode.EditFingerprint to "Edit fingerprint",
-        TaskCode.DeleteFingerprint to "Delete fingerprint",
-        TaskCode.DeviceGetFingerprint to "Device get fingerprint",
-        TaskCode.GetFaceArray to "Get face array",
-        TaskCode.QueryFace to "Query face",
-        TaskCode.AddFace to "Add face",
-        TaskCode.EditFace to "Edit face",
-        TaskCode.DeleteFace to "Delete face",
-        TaskCode.DeviceGetFace to "Device get face",
-        TaskCode.AddCredentialFingerVein to "Add credential finger vein",
-        TaskCode.EditCredentialFingerVein to "Edit credential finger vein",
-        TaskCode.DeleteCredentialFingerVein to "Delete credential finger vein",
-        TaskCode.DeviceGetCredentialFingerVein to "Device get credential finger vein",
-        TaskCode.GetEventQuantity to "Get event quantity",
-        TaskCode.GetEvent to "Get event",
-        TaskCode.GetEventByAddress to "Get event by address",
-        TaskCode.DeleteEvent to "Delete event",
-        TaskCode.GetLockSupportedUnlockTypes to "Get lock supported unlock types",
-        TaskCode.QueryUserAbility to "Query user ability",
-        TaskCode.QueryUserCount to "Query user count",
-        TaskCode.IsMatterDevice to "Is matter device",
-        TaskCode.GetUserArray to "Get user array",
-        TaskCode.GetUser to "Get user",
-        TaskCode.AddUser to "Add user",
-        TaskCode.EditUser to "Edit user",
-        TaskCode.DeleteUser to "Delete user",
-        TaskCode.GetCredentialArray to "Get credential array",
-        TaskCode.GetCredentialByCredential to "Get credential by credential",
-        TaskCode.GetCredentialByUser to "Get credential by user",
-        TaskCode.GetCredentialHash to "Get credential hash",
-        TaskCode.GetUserHash to "Get user hash",
-        TaskCode.HasUnsyncedData to "Has unsynced data",
-        TaskCode.GetUnsyncedData to "Get unsynced data",
-        TaskCode.SetCredentialUnsyncedData to "Set credential unsynced data",
-        TaskCode.SetUserUnsyncedData to "Set user unsynced data",
-        TaskCode.SetLogUnsyncedData to "Set log unsynced data",
-        TaskCode.SetTokenUnsyncedData to "Set token unsynced data",
-        TaskCode.SetSettingUnsyncedData to "Set setting unsynced data",
-        TaskCode.SetAllDataSynced to "Set all data synced",
-        TaskCode.ScanWifi to "Scan wifi",
-        TaskCode.ConnectToWifi to "Connect to wifi",
-        TaskCode.SetOTAUpdate to "OTA update",
-        TaskCode.SetOTACancel to "OTA cancel",
-        TaskCode.TogglePlugState to "Toggle plug state",
-        TaskCode.GetFwVersion to "Get firmware version",
-        TaskCode.GetRfVersion to "Get RF version",
-        TaskCode.GetMcuVersion to "Get MCU version",
-        TaskCode.FactoryReset to "Factory reset",
-        TaskCode.FactoryResetNoAdmin to "Factory reset no admin",
-        TaskCode.Restart to "Restart",
-        TaskCode.Disconnect to "Disconnect"
-    )
 
     val cameraPermissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
     var isScanButtonClicked by remember { mutableStateOf(false) }
@@ -166,7 +68,6 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
     HomeScreen(
         uiState,
         logList,
-        taskList,
         onExecuteClicked = { viewModel.executeTask() },
         onScanClicked = {
             isScanButtonClicked = true
@@ -227,11 +128,10 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
 fun HomeScreen(
     state: UiState,
     logList: MutableList<String>,
-    taskList: Array<Pair<Int, String>>,
     onExecuteClicked: () -> Unit,
     onScanClicked: () -> Unit,
     shouldShowTaskList: (Boolean) -> Unit,
-    onTaskItemClicked: (Int) -> Unit,
+    onTaskItemClicked: (BleDeviceFeature.TaskCode) -> Unit,
     onChooseFileClicked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -320,8 +220,8 @@ fun HomeScreen(
                 .padding(12.dp)
                 .weight(1f)) {
                 val typeText =
-                    if (taskList.none { it.first == state.taskCode }) "Please select task" else {
-                        taskList.findLast { it.first == state.taskCode }
+                    if (state.taskList.none { it.first == state.taskCode }) "Please select task" else {
+                        state.taskList.findLast { it.first == state.taskCode }
                             .let { it!!.second }
                     }
                 Text(
@@ -354,11 +254,11 @@ fun HomeScreen(
                     expanded = state.shouldShowTaskList,
                     onDismissRequest = { shouldShowTaskList.invoke(false) },
                     modifier = Modifier
-                        .height(500.dp)
+                        .height(if(state.taskList.size > 11) 635.dp else (state.taskList.size * 56).dp)
                         .width(with(LocalDensity.current) { dropDownWidth.toDp() })
                         .background(Color.White)
                 ) {
-                    taskList.forEach {
+                    state.taskList.forEach {
                         DropdownMenuItem(onClick = { onTaskItemClicked(it.first) }) {
                             Text(
                                 text = it.second,

@@ -15,6 +15,7 @@ import com.sunion.core.ble.exception.ConnectionTokenException
 import com.sunion.core.ble.exception.LockStatusException
 import com.sunion.core.ble.isDeviceUuid
 import com.sunion.core.ble.isNotSupport
+import com.sunion.core.ble.isNotSupport2Byte
 import com.sunion.core.ble.isSupport2Byte
 import com.sunion.core.ble.toHexString
 import com.sunion.core.ble.unless
@@ -96,16 +97,9 @@ class HomeViewModel @Inject constructor(
     private var currentFileUri: Uri? = null
     var fileSize: Int = 0
     val currentTarget = 0 // 0:mcu 1:rf
-    val ivString = "0439F307DD7DC259C4242D8A83FF70A7"
-    val signatureV005 =
-        "3045022100CE013DE7E4816F0F9D35955879FB34DF2C0CB0BC335E9C4D598B23498C978DE30220401808C3E08E36F899EC36B57944731F48B54300E229EA6ADF181F374763E94E"
-    val signatureV008 =
-        "3046022100BC8B2E6E479E81680C16CA2AE61FA88D84B063AF8334361D1B01ABA57941AD04022100D7E894B0F4DE3F448CD1E112AE48557F5664D0A686DCFC797233ED3D119851C0"
-    val signatureV012 =
-        "30460221008DA3CFC12FD79DB4E604198AB1ACEB415AF83B20CCD9B689DC5D497969164ABE022100DF11393C059817F87B8102F799E0DE45350F1DBE29E444475F5BAF65BF4107B0"
-    val hash256V005 = "76FE255B21C7A3B2A7108C7215E543F87A85E93B47EF0CC521ACA958A776AEF0"
-    val hash256V008 = "E7DC8DB6ED39CD24A5BEEC3A46BE1109D466B5E9D830C0A41DBEEEC800BCAD01"
-    val hash256V012 = "A02317A9E4DC5F7F2AD8FA2F8A5C7970B2D710D081BB3BE6C756EBF0458A0A07"
+    val ivString = ""
+    val signatureV005 = ""
+    val hash256V005 = ""
 
     private var adminCode = "0000"
 
@@ -122,6 +116,9 @@ class HomeViewModel @Inject constructor(
     private var lastUserIndex = 0
     private var lastCredentialIndex = 0
     private var lastUnsyncedData: User.NinetyB? = null
+    private var isCheckDeviceStatus = false
+    private var isCheckLockConfig = false
+    private var isCheckUnLockType = false
 
     fun init() {
         Timber.d("init")
@@ -163,7 +160,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(shouldShowTaskList = isShow) }
     }
 
-    fun setTaskCode(code: Int) {
+    fun setTaskCode(code: BleDeviceFeature.TaskCode) {
         _uiState.update { it.copy(taskCode = code, shouldShowTaskList = false) }
     }
 
@@ -172,7 +169,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(btnEnabled = false) }
         when (_uiState.value.taskCode) {
             // Connect
-            TaskCode.Connect -> {
+            BleDeviceFeature.TaskCode.Connect -> {
                 if(currentQrCodeContent != null && currentQrCodeContent!!.isDeviceUuid() && currentConnectMacAddress == null){
                     startBleScan(currentQrCodeContent!!, currentProductionGetResponse!!, true)
                 } else {
@@ -180,396 +177,401 @@ class HomeViewModel @Inject constructor(
                 }
             }
             // Get lock time
-            TaskCode.GetLockTime -> {
+            BleDeviceFeature.TaskCode.GetLockTime -> {
                 getLockTime()
             }
             // Set lock time
-            TaskCode.SetLockTime -> {
+            BleDeviceFeature.TaskCode.SetLockTime -> {
                 setLockTime()
             }
             // Get lock time zone
-            TaskCode.GetLockTimeZone -> {
+            BleDeviceFeature.TaskCode.GetLockTimeZone -> {
                 getLockTimeZone()
             }
             // Set lock timezone
-            TaskCode.SetLockTimeZone -> {
+            BleDeviceFeature.TaskCode.SetLockTimeZone -> {
                 setLockTimeZone()
             }
             // Get lock name
-            TaskCode.GetLockName -> {
+            BleDeviceFeature.TaskCode.GetLockName -> {
                 getLockName()
             }
             // Set lock name
-            TaskCode.SetLockName -> {
+            BleDeviceFeature.TaskCode.SetLockName -> {
                 setLockName(name = "my door lock")
             }
             // Get DeviceStatus
-            TaskCode.GetDeviceStatus -> {
+            BleDeviceFeature.TaskCode.GetDeviceStatus -> {
                 getDeviceStatus()
             }
             // Get lock config
-            TaskCode.GetLockConfig -> {
+            BleDeviceFeature.TaskCode.GetLockConfig -> {
                 getLockConfig()
             }
             // Toggle lock state
-            TaskCode.ToggleLockState -> {
+            BleDeviceFeature.TaskCode.ToggleLockState -> {
                 toggleLockState()
             }
             // Auto unlock toggle lock state
-            TaskCode.AutoUnlockToggleLockState -> {
+            BleDeviceFeature.TaskCode.AutoUnlockToggleLockState -> {
                 autoUnlockToggleLockState()
             }
             // Toggle security bolt
-            TaskCode.ToggleSecurityBolt -> {
+            BleDeviceFeature.TaskCode.ToggleSecurityBolt -> {
                 toggleSecurityBolt()
             }
             // Auto unlock toggle lock state
-            TaskCode.AutoUnlockToggleSecurityBolt -> {
+            BleDeviceFeature.TaskCode.AutoUnlockToggleSecurityBolt -> {
                 autoUnlockToggleSecurityBolt()
             }
             // Toggle key press beep
-            TaskCode.ToggleKeyPressBeep -> {
+            BleDeviceFeature.TaskCode.ToggleKeyPressBeep -> {
                 toggleKeyPressBeep()
             }
             // Toggle vacation mode
-            TaskCode.ToggleVacationMode -> {
+            BleDeviceFeature.TaskCode.ToggleVacationMode -> {
                 toggleVacationMode()
             }
             // Toggle guiding code
-            TaskCode.ToggleGuidingCode -> {
+            BleDeviceFeature.TaskCode.ToggleGuidingCode -> {
                 toggleGuidingCode()
             }
             // Toggle auto lock
-            TaskCode.ToggleAutoLock -> {
+            BleDeviceFeature.TaskCode.ToggleAutoLock -> {
                 toggleAutoLock(10)
             }
             // Set lock location
-            TaskCode.SetLockLocation -> {
+            BleDeviceFeature.TaskCode.SetLockLocation -> {
                 setLockLocation(25.03369, 121.564128)
             }
             // Toggle virtual code
-            TaskCode.ToggleVirtualCode -> {
+            BleDeviceFeature.TaskCode.ToggleVirtualCode -> {
                 toggleVirtualCode()
             }
             // Toggle twoFA
-            TaskCode.ToggleTwoFA -> {
+            BleDeviceFeature.TaskCode.ToggleTwoFA -> {
                 toggleTwoFA()
             }
             // Toggle operating sound
-            TaskCode.ToggleOperatingSound -> {
+            BleDeviceFeature.TaskCode.ToggleOperatingSound -> {
                 toggleOperatingSound()
             }
             // Toggle show fast track mode
-            TaskCode.ToggleShowFastTrackMode -> {
+            BleDeviceFeature.TaskCode.ToggleShowFastTrackMode -> {
                 toggleShowFastTrackMode()
             }
             // Toggle sabbath mode
-            TaskCode.ToggleSabbathMode -> {
+            BleDeviceFeature.TaskCode.ToggleSabbathMode -> {
                 toggleSabbathMode()
             }
             // Determine lock direction
-            TaskCode.DetermineLockDirection -> {
+            BleDeviceFeature.TaskCode.DetermineLockDirection -> {
                 determineLockDirection()
             }
             // Is Admin code exists
-            TaskCode.IsAdminCodeExists -> {
+            BleDeviceFeature.TaskCode.IsAdminCodeExists -> {
                 isAdminCodeExists()
             }
             // Create Admin code
-            TaskCode.CreateAdminCode -> {
+            BleDeviceFeature.TaskCode.CreateAdminCode -> {
                 createAdminCode(adminCode)
             }
             // Update Admin code
-            TaskCode.UpdateAdminCode -> {
+            BleDeviceFeature.TaskCode.UpdateAdminCode -> {
                 updateAdminCode(adminCode, newCode = "1234")
             }
             // Plug on
-            TaskCode.TogglePlugState -> {
+            BleDeviceFeature.TaskCode.TogglePlugState -> {
                 togglePlugState()
             }
             // Get firmware version
-            TaskCode.GetFwVersion -> {
+            BleDeviceFeature.TaskCode.GetFwVersion -> {
                 getFirmwareVersion()
             }
             // Get RF version
-            TaskCode.GetRfVersion -> {
+            BleDeviceFeature.TaskCode.GetRfVersion -> {
                 getRfVersion()
             }
             // Get MCU version
-            TaskCode.GetMcuVersion -> {
+            BleDeviceFeature.TaskCode.GetMcuVersion -> {
                 getMcuVersion()
             }
             // Factory reset
-            TaskCode.FactoryReset -> {
+            BleDeviceFeature.TaskCode.FactoryReset -> {
                 factoryReset(adminCode)
             }
             // Factory reset
-            TaskCode.FactoryResetNoAdmin -> {
+            BleDeviceFeature.TaskCode.FactoryResetNoAdmin -> {
                 factoryReset()
             }
             // Restart
-            TaskCode.Restart -> {
+            BleDeviceFeature.TaskCode.Restart -> {
                 restart()
             }
             // Query TokenArray
-            TaskCode.QueryTokenArray -> {
+            BleDeviceFeature.TaskCode.QueryTokenArray -> {
                 queryTokenArray()
             }
             // Query Token
-            TaskCode.QueryToken -> {
+            BleDeviceFeature.TaskCode.QueryToken -> {
                 queryToken()
             }
             // Add OneTime Token
-            TaskCode.AddOneTimeToken -> {
-                addOneTimeToken("L","Tom ${lastTokenIndex + 1}")
+            BleDeviceFeature.TaskCode.AddOneTimeToken -> {
+                addOneTimeToken("L","User ${lastTokenIndex + 1}")
             }
             // Edit Token
-            TaskCode.EditToken -> {
-                editToken(lastTokenIndex,"A","Tom $lastTokenIndex ed")
+            BleDeviceFeature.TaskCode.EditToken -> {
+                editToken(lastTokenIndex,"A","User $lastTokenIndex ed")
             }
             // Delete Token
-            TaskCode.DeleteToken -> {
+            BleDeviceFeature.TaskCode.DeleteToken -> {
                 deleteToken(lastTokenIndex)
             }
             // Get Access Code Array
-            TaskCode.GetAccessCodeArray -> {
+            BleDeviceFeature.TaskCode.GetAccessCodeArray -> {
                 getAccessCodeArray()
             }
             // Query Access Code
-            TaskCode.QueryAccessCode -> {
+            BleDeviceFeature.TaskCode.QueryAccessCode -> {
                 queryAccessCode()
             }
             // Add Access Code
-            TaskCode.AddAccessCode -> {
+            BleDeviceFeature.TaskCode.AddAccessCode -> {
                 addAccessCode()
             }
             // Edit Access Code
-            TaskCode.EditAccessCode -> {
+            BleDeviceFeature.TaskCode.EditAccessCode -> {
                 editAccessCode()
             }
             // Delete Access Code
-            TaskCode.DeleteAccessCode -> {
+            BleDeviceFeature.TaskCode.DeleteAccessCode -> {
                 deleteAccessCode(lastCodeCardIndex)
             }
             // Get Access Card Array
-            TaskCode.GetAccessCardArray -> {
+            BleDeviceFeature.TaskCode.GetAccessCardArray -> {
                 getAccessCardArray()
             }
             // Query Access Card
-            TaskCode.QueryAccessCard -> {
+            BleDeviceFeature.TaskCode.QueryAccessCard -> {
                 queryAccessCard()
             }
             // Add Access Card
-            TaskCode.AddAccessCard -> {
+            BleDeviceFeature.TaskCode.AddAccessCard -> {
                 addAccessCard()
             }
             // Edit Access Card
-            TaskCode.EditAccessCard -> {
+            BleDeviceFeature.TaskCode.EditAccessCard -> {
                 editAccessCard()
             }
             // Delete Access Card
-            TaskCode.DeleteAccessCard -> {
+            BleDeviceFeature.TaskCode.DeleteAccessCard -> {
                 deleteAccessCard(lastCodeCardIndex)
             }
             // Device Get Access Card
-            TaskCode.DeviceGetAccessCard -> {
+            BleDeviceFeature.TaskCode.DeviceGetAccessCard -> {
                 deviceGetAccessCard()
             }
             // Get Fingerprint Array
-            TaskCode.GetFingerprintArray -> {
+            BleDeviceFeature.TaskCode.GetFingerprintArray -> {
                 getFingerprintArray()
             }
             // Query Fingerprint
-            TaskCode.QueryFingerprint -> {
+            BleDeviceFeature.TaskCode.QueryFingerprint -> {
                 queryFingerprint()
             }
             // Add Fingerprint
-            TaskCode.AddFingerprint -> {
+            BleDeviceFeature.TaskCode.AddFingerprint -> {
                 addFingerprint()
             }
             // Edit Fingerprint
-            TaskCode.EditFingerprint -> {
+            BleDeviceFeature.TaskCode.EditFingerprint -> {
                 editFingerprint()
             }
             // Delete Fingerprint
-            TaskCode.DeleteFingerprint -> {
+            BleDeviceFeature.TaskCode.DeleteFingerprint -> {
                 deleteFingerprint(lastFingerprintIndex)
             }
             // Device Get Fingerprint
-            TaskCode.DeviceGetFingerprint -> {
+            BleDeviceFeature.TaskCode.DeviceGetFingerprint -> {
                 deviceGetFingerprint()
             }
             // Get FaceArray
-            TaskCode.GetFaceArray -> {
+            BleDeviceFeature.TaskCode.GetFaceArray -> {
                 getFaceArray()
             }
             // Query Face
-            TaskCode.QueryFace -> {
+            BleDeviceFeature.TaskCode.QueryFace -> {
                 queryFace()
             }
             // Add Face
-            TaskCode.AddFace -> {
+            BleDeviceFeature.TaskCode.AddFace -> {
                 addFace()
             }
             // Edit Face
-            TaskCode.EditFace -> {
+            BleDeviceFeature.TaskCode.EditFace -> {
                 editFace()
             }
             // Delete Face
-            TaskCode.DeleteFace -> {
+            BleDeviceFeature.TaskCode.DeleteFace -> {
                 deleteFace(lastFaceIndex)
             }
             // Device Get Face
-            TaskCode.DeviceGetFace -> {
+            BleDeviceFeature.TaskCode.DeviceGetFace -> {
                 deviceGetFace()
             }
             // Add Credential Finger Vein
-            TaskCode.AddCredentialFingerVein -> {
+            BleDeviceFeature.TaskCode.AddCredentialFingerVein -> {
                 addCredentialFingerVein()
             }
             // Edit Credential Finger Vein
-            TaskCode.EditCredentialFingerVein -> {
+            BleDeviceFeature.TaskCode.EditCredentialFingerVein -> {
                 editCredentialFingerVein()
             }
             // Delete Credential Finger Vein
-            TaskCode.DeleteCredentialFingerVein -> {
+            BleDeviceFeature.TaskCode.DeleteCredentialFingerVein -> {
                 deleteCredentialFingerVein(lastFingerVeinIndex)
             }
             // Device Get Credential Finger Vein
-            TaskCode.DeviceGetCredentialFingerVein -> {
+            BleDeviceFeature.TaskCode.DeviceGetCredentialFingerVein -> {
                 deviceGetCredentialFingerVein()
             }
             // Get Event Quantity
-            TaskCode.GetEventQuantity -> {
+            BleDeviceFeature.TaskCode.GetEventQuantity -> {
                 getEventQuantity()
             }
             // Get Event
-            TaskCode.GetEvent -> {
+            BleDeviceFeature.TaskCode.GetEvent -> {
                 getEvent()
             }
             // Get Event By Address
-            TaskCode.GetEventByAddress -> {
+            BleDeviceFeature.TaskCode.GetEventByAddress -> {
                 getEventByAddress(lastEventLogIndex)
             }
             // Delete Event
-            TaskCode.DeleteEvent -> {
+            BleDeviceFeature.TaskCode.DeleteEvent -> {
                 deleteEvent(lastEventLogIndex)
             }
             // Get Lock Supported Unlock Types
-            TaskCode.GetLockSupportedUnlockTypes -> {
+            BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes -> {
                 getLockSupportedUnlockTypes()
             }
             // Query User Ability
-            TaskCode.QueryUserAbility -> {
+            BleDeviceFeature.TaskCode.QueryUserAbility -> {
                 queryUserAbility()
             }
             // Query User Count
-            TaskCode.QueryUserCount -> {
+            BleDeviceFeature.TaskCode.QueryUserCount -> {
                 queryUserCount()
             }
             // Is Matter Device
-            TaskCode.IsMatterDevice -> {
+            BleDeviceFeature.TaskCode.IsMatterDevice -> {
                 isMatterDevice()
             }
             // Get User Array
-            TaskCode.GetUserArray -> {
+            BleDeviceFeature.TaskCode.GetUserArray -> {
                 getUserArray()
             }
             // Get User
-            TaskCode.GetUser -> {
+            BleDeviceFeature.TaskCode.GetUser -> {
                 getUser()
             }
             // Add User
-            TaskCode.AddUser -> {
+            BleDeviceFeature.TaskCode.AddUser -> {
                 addUser()
             }
             // Edit User
-            TaskCode.EditUser -> {
+            BleDeviceFeature.TaskCode.EditUser -> {
                 editUser()
             }
             // Delete User
-            TaskCode.DeleteUser -> {
+            BleDeviceFeature.TaskCode.DeleteUser -> {
                 deleteUser(lastUserIndex)
             }
             // Get Credential Array
-            TaskCode.GetCredentialArray -> {
+            BleDeviceFeature.TaskCode.GetCredentialArray -> {
                 getCredentialArray()
             }
             // Get Credential By Credential
-            TaskCode.GetCredentialByCredential -> {
+            BleDeviceFeature.TaskCode.GetCredentialByCredential -> {
                 getCredentialByCredential()
             }
             // Get Credential By User
-            TaskCode.GetCredentialByUser -> {
+            BleDeviceFeature.TaskCode.GetCredentialByUser -> {
                 getCredentialByUser()
             }
             // Get Credential Hash
-            TaskCode.GetCredentialHash -> {
+            BleDeviceFeature.TaskCode.GetCredentialHash -> {
                 getCredentialHash()
             }
             // Get User Hash
-            TaskCode.GetUserHash -> {
+            BleDeviceFeature.TaskCode.GetUserHash -> {
                 getUserHash()
             }
             // Has Unsynced Data
-            TaskCode.HasUnsyncedData -> {
+            BleDeviceFeature.TaskCode.HasUnsyncedData -> {
                 hasUnsyncedData()
             }
             // Get Unsynced Data
-            TaskCode.GetUnsyncedData -> {
+            BleDeviceFeature.TaskCode.GetUnsyncedData -> {
                 getUnsyncedData()
             }
             // Set Credential Unsynced Data
-            TaskCode.SetCredentialUnsyncedData -> {
+            BleDeviceFeature.TaskCode.SetCredentialUnsyncedData -> {
                 setCredentialUnsyncedData()
             }
             // Set User Unsynced Data
-            TaskCode.SetUserUnsyncedData -> {
+            BleDeviceFeature.TaskCode.SetUserUnsyncedData -> {
                 setUserUnsyncedData()
             }
             // Set Log Unsynced Data
-            TaskCode.SetLogUnsyncedData -> {
+            BleDeviceFeature.TaskCode.SetLogUnsyncedData -> {
                 setLogUnsyncedData()
             }
             // Set Token Unsynced Data
-            TaskCode.SetTokenUnsyncedData -> {
+            BleDeviceFeature.TaskCode.SetTokenUnsyncedData -> {
                 setTokenUnsyncedData()
             }
             // Set Setting Unsynced Data
-            TaskCode.SetSettingUnsyncedData -> {
+            BleDeviceFeature.TaskCode.SetSettingUnsyncedData -> {
                 setSettingUnsyncedData()
             }
             // Set All Data Synced
-            TaskCode.SetAllDataSynced -> {
+            BleDeviceFeature.TaskCode.SetAllDataSynced -> {
                 setAllDataSynced()
             }
             // Scan Wifi
-            TaskCode.ScanWifi -> {
+            BleDeviceFeature.TaskCode.ScanWifi -> {
                 collectWifiList()
                 scanWifi()
             }
             // Connect To Wifi
-            TaskCode.ConnectToWifi -> {
+            BleDeviceFeature.TaskCode.ConnectToWifi -> {
                 connectToWifi("Sunion-SW", "S-device_W")
             }
             // Set OTA Status
-            TaskCode.SetOTAUpdate -> {
-                otaUpdate(currentTarget, signatureV012)
+            BleDeviceFeature.TaskCode.SetOTAUpdate -> {
+                otaUpdate(currentTarget, "")
             }
             // Set OTA Cancel
-            TaskCode.SetOTACancel -> {
+            BleDeviceFeature.TaskCode.SetOTACancel -> {
                 setOTACancel(currentTarget)
             }
             // Disconnect
-            TaskCode.Disconnect -> {
+            BleDeviceFeature.TaskCode.Disconnect -> {
                 disconnect()
             }
+            else -> {}
         }
         _uiState.update { it.copy(btnEnabled = true) }
     }
 
     private fun connect() {
         val functionName = ::connect.name
+        if(_lockConnectionInfo == null) {
+            showLog("Please scan QR code to get lock connection information.")
+            return
+        }
         _uiState.update { it.copy(isLoading = true) }
         // Setup BLE connection state observer
         _bleConnectionStateListener?.cancel()
@@ -607,6 +609,7 @@ class HomeViewModel @Inject constructor(
                                     is DeviceStatus -> {
                                         _currentDeviceStatus = sunionBleNotification
                                         showLog("Incoming ${sunionBleNotification::class.simpleName} arrived.")
+                                        setSupportTaskList(sunionBleNotification)
                                     }
                                     is Alert -> {
                                         _currentSunionBleNotification = sunionBleNotification
@@ -636,6 +639,8 @@ class HomeViewModel @Inject constructor(
                                 keyTwo = statefulConnection.lockConnectionInfo.keyTwo,
                                 permanentToken = statefulConnection.lockConnectionInfo.permanentToken
                             )
+                            // filter model not support function
+                            setModelSupportTaskList(lockConnectionInfo!!.model)
                             showLog("$functionName to lock succeed.")
                             // connect with oneTimeToken
                             if (_lockConnectionInfo!!.permanentToken.isNullOrEmpty()) {
@@ -1079,6 +1084,8 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         showLog("$functionName.A0: $lockConfig")
+                        // filter not support function
+                        setSupportTaskList(lockConfig = lockConfig)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1090,6 +1097,8 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         showLog("$functionName.80: $lockConfig")
+                        // filter not support function
+                        setSupportTaskList(lockConfig = lockConfig)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1750,6 +1759,7 @@ class HomeViewModel @Inject constructor(
                 if(result){
                     _lockConnectionInfo = null
                     userAbility = null
+                    _uiState.update { it.copy(btnEnabled = false) }
                 }
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -1767,6 +1777,7 @@ class HomeViewModel @Inject constructor(
                 if(result){
                     _lockConnectionInfo = null
                     userAbility = null
+                    _uiState.update { it.copy(btnEnabled = false) }
                 }
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -1971,7 +1982,7 @@ class HomeViewModel @Inject constructor(
     private fun addAccessCode() {
         val functionName = ::addAccessCode.name
         val isEnabled = true
-        val name = "Tom ${lastCodeCardIndex + 1}"
+        val name = "User ${lastCodeCardIndex + 1}"
         val code = "1234"
         val index = lastCodeCardIndex + 1
         val scheduleType: AccessScheduleType = AccessScheduleType.All
@@ -2046,7 +2057,7 @@ class HomeViewModel @Inject constructor(
     private fun editAccessCode() {
         val functionName = ::editAccessCode.name
         val isEnabled = true
-        val name = "Tom $lastCodeCardIndex ed"
+        val name = "User $lastCodeCardIndex ed"
         val code = "2345"
         val index = lastCodeCardIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
@@ -2229,7 +2240,7 @@ class HomeViewModel @Inject constructor(
     private fun addAccessCard() {
         val functionName = ::addAccessCard.name
         val isEnabled = true
-        val name = "Tom ${lastCodeCardIndex + 1}"
+        val name = "User ${lastCodeCardIndex + 1}"
         val code = byteArrayOf(0x00, 0x00, 0x00, 0x00, 0xFC.toByte(),
             0xE8.toByte(), 0xFA.toByte(), 0x5B)
         val index = lastCodeCardIndex + 1
@@ -2287,7 +2298,7 @@ class HomeViewModel @Inject constructor(
     private fun editAccessCard() {
         val functionName = ::editAccessCard.name
         val isEnabled = true
-        val name = "Tom $lastCodeCardIndex ed"
+        val name = "User $lastCodeCardIndex ed"
         val code =  byteArrayOf(0x88.toByte(), 0x04, 0x37, 0x75, 0x6A, 0x57, 0x58, 0x81.toByte())
         val index = lastCodeCardIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
@@ -2484,7 +2495,7 @@ class HomeViewModel @Inject constructor(
     private fun addFingerprint() {
         val functionName = ::addFingerprint.name
         val isEnabled = true
-        val name = "Tom ${lastFingerprintIndex + 1}"
+        val name = "User ${lastFingerprintIndex + 1}"
         val index = lastFingerprintIndex + 1
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
@@ -2540,7 +2551,7 @@ class HomeViewModel @Inject constructor(
     private fun editFingerprint() {
         val functionName = ::editFingerprint.name
         val isEnabled = true
-        val name = "Tom $lastFingerprintIndex ed"
+        val name = "User $lastFingerprintIndex ed"
         val index = lastFingerprintIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
@@ -2736,7 +2747,7 @@ class HomeViewModel @Inject constructor(
     private fun addFace() {
         val functionName = ::addFace.name
         val isEnabled = true
-        val name = "Tom ${lastFaceIndex + 1}"
+        val name = "User ${lastFaceIndex + 1}"
         val index = lastFaceIndex + 1
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
@@ -2792,7 +2803,7 @@ class HomeViewModel @Inject constructor(
     private fun editFace() {
         val functionName = ::editFace.name
         val isEnabled = true
-        val name = "Tom $lastFaceIndex ed"
+        val name = "User $lastFaceIndex ed"
         val index = lastFaceIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
@@ -3088,6 +3099,8 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
+                        // filter not support function
+                        setSupportTaskList(supportedUnlockType = result)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -3109,6 +3122,8 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         showLog("$functionName result: $result")
                         userAbility = result
+                        // filter not support function
+                        setSupportTaskList(userAbility = result)
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -3214,7 +3229,7 @@ class HomeViewModel @Inject constructor(
 
     private fun addUser() {
         val functionName = ::addUser.name
-        val name = "Tom ${lastUserIndex + 1}"
+        val name = "User ${lastUserIndex + 1}"
         val index = lastUserIndex + 1
         val uid = index
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
@@ -3283,7 +3298,7 @@ class HomeViewModel @Inject constructor(
 
     private fun editUser() {
         val functionName = ::editUser.name
-        val name = "Tom $lastUserIndex ed"
+        val name = "User $lastUserIndex ed"
         val index = lastUserIndex
         val uid = index
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
@@ -3795,11 +3810,17 @@ class HomeViewModel @Inject constructor(
         _bleSunionBleNotificationListener?.cancel()
         _currentDeviceStatus = DeviceStatus.UNKNOWN
         _currentSunionBleNotification = SunionBleNotification.UNKNOWN
+        isCheckDeviceStatus = false
+        isCheckLockConfig = false
+        isCheckUnLockType = false
         if(currentQrCodeContent?.isDeviceUuid() == true) {
             currentConnectMacAddress = null
         }
-        _uiState.update { it.copy(isLoading = false, isConnectedWithLock = false) }
+        _uiState.update { it.copy(isLoading = false, isConnectedWithLock = false, taskList = BleDeviceFeature.initTaskList) }
         showLog(functionName)
+        if(lockConnectionInfo == null){
+            showLog("Please scan QR code to get lock connection information.")
+        }
     }
 
     fun setQRCodeContent(content: String) {
@@ -3809,8 +3830,8 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             if(content.isDeviceUuid()) {
-                currentProductionGetResponse = deviceApiRepository.getProduction(code = content)
                 _uiEvent.emit(UiEvent.Complete)
+                currentProductionGetResponse = deviceApiRepository.getProduction(code = content)
                 startBleScan(content, currentProductionGetResponse!!)
             } else {
                 val qrCodeContent =
@@ -3891,12 +3912,6 @@ class HomeViewModel @Inject constructor(
         val checkResult = when (signature) {
             signatureV005 -> {
                 fileCheck(hash256V005)
-            }
-            signatureV008 -> {
-                fileCheck(hash256V008)
-            }
-            signatureV012 -> {
-                fileCheck(hash256V012)
             }
             else -> {
                 false
@@ -3981,7 +3996,7 @@ class HomeViewModel @Inject constructor(
 
     fun startBleScan(uuid: String, productionGetResponse: ProductionGetResponse, isReconnect: Boolean = false) {
         val disposable = bleScanUseCase.scanUuid(uuid = uuid)
-            .timeout(10, TimeUnit.SECONDS)
+            .timeout(30, TimeUnit.SECONDS)
             .take(1)
             .subscribe(
                 { scanResult ->
@@ -3992,12 +4007,13 @@ class HomeViewModel @Inject constructor(
                 { throwable ->
                     // 處理錯誤
                     Timber.e("Scan error: $throwable")
+                    showLog("Ble Scan error: Can't not get lock info with $uuid.")
                 },
                 {
                     // 處理掃描完成事件
                     Timber.d("Scan complete")
                     if(productionGetResponse.address.isNullOrBlank() && currentConnectMacAddress.isNullOrBlank()){
-                        showLog("Production api or scan ble to get mac address failed")
+                        showLog("Production api or scan ble to get mac address failed.")
                     }
                     if(isReconnect){
                         _lockConnectionInfo = _lockConnectionInfo!!.copy(macAddress = currentConnectMacAddress!!)
@@ -4015,6 +4031,214 @@ class HomeViewModel @Inject constructor(
                 }
             )
     }
+
+    private fun setModelSupportTaskList(model: String) {
+        val functionName = ::setModelSupportTaskList.name
+        val supportedVersions = BleDeviceFeature.modelVersions[model] ?: emptySet()
+        val supportTaskList = BleDeviceFeature.taskList.filter { task ->
+            task.third.intersect(supportedVersions).isNotEmpty()
+        }.toMutableList()
+        when(model) {
+            "KD0" -> {
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleGuidingCode }
+            }
+            "TLR0" -> {
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.SetOTAUpdate }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.SetOTACancel }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
+            }
+            "TNRFp00" -> {
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
+            }
+            "KD01" -> {
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePlugState }
+            }
+        }
+        Timber.d("$functionName: $supportTaskList")
+        _uiState.update { it.copy(taskList = supportTaskList.toTypedArray()) }
+    }
+
+    private fun setSupportTaskList(deviceStatus: DeviceStatus? = null, lockConfig: LockConfig? = null, supportedUnlockType: BleV2Lock.SupportedUnlockType? = null, userAbility: BleV3Lock.UserAbility? = null) {
+        val functionName = ::setSupportTaskList.name
+        val supportTaskList = uiState.value.taskList.toMutableList()
+        if(deviceStatus != null && !isCheckDeviceStatus) {
+            when (deviceStatus) {
+                is DeviceStatus.A2 -> {
+                    if (deviceStatus.direction.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DetermineLockDirection }
+                    }
+                    if (deviceStatus.vacationMode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleVacationMode }
+                    }
+                    if (deviceStatus.lockState.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleLockState }
+                    }
+                    if (deviceStatus.securityBolt.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleSecurityBolt }
+                    }
+                    showLog("Please execute Get lock config and Get lock supported unlock types to update support task list after admin code already exist.")
+                }
+                is DeviceStatus.EightTwo -> {
+                    if (deviceStatus.direction.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DetermineLockDirection }
+                    }
+                    if (deviceStatus.vacationMode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleVacationMode }
+                    }
+                    if (deviceStatus.lockState.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleLockState }
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AutoUnlockToggleLockState }
+                    }
+                    if (deviceStatus.securityBolt.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleSecurityBolt }
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AutoUnlockToggleSecurityBolt }
+                    }
+                    showLog("Please execute Get lock config and Query user ability to update support task list after admin code already exist.")
+                }
+                else -> {}
+            }
+            isCheckDeviceStatus = true
+            Timber.d("$functionName: $supportTaskList")
+            _uiState.update { it.copy(taskList = supportTaskList.toTypedArray()) }
+        }
+        if(lockConfig != null && !isCheckLockConfig) {
+            when (lockConfig) {
+                is LockConfig.A0 -> {
+                    if (lockConfig.guidingCode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleGuidingCode }
+                    }
+                    if (lockConfig.virtualCode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleVirtualCode }
+                    }
+                    if (lockConfig.twoFA.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleTwoFA }
+                    }
+                    if (lockConfig.autoLock.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleAutoLock }
+                    }
+                    if (lockConfig.operatingSound.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleOperatingSound }
+                    }
+                    if (lockConfig.soundType.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleKeyPressBeep }
+                    }
+                    if (lockConfig.showFastTrackMode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleShowFastTrackMode }
+                    }
+                }
+                is LockConfig.Eighty -> {
+                    if (lockConfig.guidingCode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleGuidingCode }
+                    }
+                    if (lockConfig.virtualCode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleVirtualCode }
+                    }
+                    if (lockConfig.twoFA.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleTwoFA }
+                    }
+                    if (lockConfig.autoLock.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleAutoLock }
+                    }
+                    if (lockConfig.operatingSound.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleOperatingSound }
+                    }
+                    if (lockConfig.soundType.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleKeyPressBeep }
+                    }
+                    if (lockConfig.showFastTrackMode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleShowFastTrackMode }
+                    }
+                    if (lockConfig.sabbathMode.isNotSupport()) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleSabbathMode }
+                    }
+                }
+                else -> {}
+            }
+            isCheckLockConfig = true
+            Timber.d("$functionName: $supportTaskList")
+            _uiState.update { it.copy(taskList = supportTaskList.toTypedArray()) }
+        }
+        if(supportedUnlockType != null && !isCheckUnLockType) {
+            if(supportedUnlockType.accessCodeQuantity.isNotSupport2Byte()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCodeArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCode }
+            }
+            if(supportedUnlockType.accessCardQuantity.isNotSupport2Byte()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCardArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeviceGetAccessCard }
+            }
+            if(supportedUnlockType.fingerprintQuantity.isNotSupport2Byte()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFingerprintArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeviceGetFingerprint }
+            }
+            if(supportedUnlockType.faceQuantity.isNotSupport2Byte()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFaceArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeviceGetFace }
+            }
+            isCheckUnLockType = true
+            Timber.d("$functionName: $supportTaskList")
+            _uiState.update { it.copy(taskList = supportTaskList.toTypedArray()) }
+        }
+        if(userAbility != null && !isCheckUnLockType) {
+            if(userAbility.codeCredentialCount.isNotSupport()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCodeArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCode }
+            }
+            if(userAbility.cardCredentialCount.isNotSupport()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCardArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeviceGetAccessCard }
+            }
+            if(userAbility.fpCredentialCount.isNotSupport()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFingerprintArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeviceGetFingerprint }
+            }
+            if(userAbility.faceCredentialCount.isNotSupport()){
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFaceArray }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeviceGetFace }
+            }
+            isCheckUnLockType = true
+            Timber.d("$functionName: $supportTaskList")
+            _uiState.update { it.copy(taskList = supportTaskList.toTypedArray()) }
+        }
+    }
+
 }
 
 data class UiState(
@@ -4022,112 +4246,13 @@ data class UiState(
     val isBlueToothAvailable: Boolean = false,
     val isConnectedWithLock: Boolean = false,
     val shouldShowBluetoothEnableDialog: Boolean = false,
-    val taskCode: Int = -1,
+    val taskCode: BleDeviceFeature.TaskCode = BleDeviceFeature.TaskCode.Unknown,
     val btnEnabled: Boolean = false,
     val shouldShowTaskList: Boolean = false,
-    val message: String = ""
+    val message: String = "",
+    val taskList: Array<Triple<BleDeviceFeature.TaskCode, String, Set<String>>> = BleDeviceFeature.initTaskList
 )
 
 sealed class UiEvent {
     object Complete: UiEvent()
-}
-
-object TaskCode {
-    const val Connect = 0
-    const val GetLockTime = 1
-    const val SetLockTime = 2
-    const val SetLockTimeZone = 3
-    const val GetDeviceStatus = 4
-    const val IsAdminCodeExists = 5
-    const val CreateAdminCode = 6
-    const val UpdateAdminCode = 7
-    const val GetLockName = 8
-    const val SetLockName = 9
-    const val ToggleLockState = 10
-    const val DetermineLockDirection = 11
-    const val ToggleKeyPressBeep = 12
-    const val ToggleVacationMode = 13
-    const val GetLockConfig = 14
-    const val ToggleGuidingCode = 15
-    const val ToggleAutoLock = 16
-    const val SetLockLocation = 17
-    const val QueryTokenArray = 18
-    const val QueryToken = 19
-    const val AddOneTimeToken = 20
-    const val EditToken = 21
-    const val DeleteToken = 22
-    const val GetAccessCodeArray = 23
-    const val QueryAccessCode = 24
-    const val AddAccessCode = 25
-    const val EditAccessCode = 26
-    const val DeleteAccessCode = 27
-    const val GetAccessCardArray = 28
-    const val QueryAccessCard = 29
-    const val AddAccessCard = 30
-    const val EditAccessCard = 31
-    const val DeleteAccessCard = 32
-    const val DeviceGetAccessCard = 33
-    const val GetFingerprintArray = 34
-    const val QueryFingerprint = 35
-    const val AddFingerprint = 36
-    const val EditFingerprint = 37
-    const val DeleteFingerprint = 38
-    const val DeviceGetFingerprint = 39
-    const val GetFaceArray = 40
-    const val QueryFace = 41
-    const val AddFace = 42
-    const val EditFace = 43
-    const val DeleteFace = 44
-    const val DeviceGetFace = 45
-    const val GetEventQuantity = 46
-    const val GetEvent = 47
-    const val DeleteEvent = 48
-    const val ToggleSecurityBolt = 49
-    const val ToggleVirtualCode = 50
-    const val ToggleTwoFA = 51
-    const val ToggleOperatingSound = 52
-    const val ToggleShowFastTrackMode = 53
-    const val GetLockSupportedUnlockTypes = 54
-    const val ScanWifi = 55
-    const val ConnectToWifi = 56
-    const val SetOTAUpdate = 57
-    const val SetOTACancel = 58
-    const val TogglePlugState = 59
-    const val GetLockTimeZone = 60
-    const val ToggleSabbathMode = 61
-    const val AutoUnlockToggleLockState = 62
-    const val AutoUnlockToggleSecurityBolt = 63
-    const val GetEventByAddress = 64
-    const val AddCredentialFingerVein = 65
-    const val EditCredentialFingerVein = 66
-    const val DeleteCredentialFingerVein = 67
-    const val DeviceGetCredentialFingerVein = 68
-    const val QueryUserAbility = 69
-    const val QueryUserCount = 70
-    const val IsMatterDevice = 71
-    const val GetUserArray = 72
-    const val GetUser = 73
-    const val AddUser = 74
-    const val EditUser = 75
-    const val DeleteUser = 76
-    const val GetCredentialArray = 77
-    const val GetCredentialByCredential = 78
-    const val GetCredentialByUser = 79
-    const val GetCredentialHash = 80
-    const val GetUserHash = 81
-    const val HasUnsyncedData = 82
-    const val GetUnsyncedData = 83
-    const val SetCredentialUnsyncedData = 84
-    const val SetUserUnsyncedData = 85
-    const val SetLogUnsyncedData = 86
-    const val SetTokenUnsyncedData = 87
-    const val SetSettingUnsyncedData = 88
-    const val SetAllDataSynced = 89
-    const val GetFwVersion = 90
-    const val GetRfVersion = 91
-    const val GetMcuVersion = 92
-    const val FactoryReset = 93
-    const val FactoryResetNoAdmin = 94
-    const val Restart = 95
-    const val Disconnect = 99
 }
