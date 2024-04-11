@@ -18,6 +18,7 @@ import com.sunion.core.ble.isNotSupport
 import com.sunion.core.ble.isNotSupport2Byte
 import com.sunion.core.ble.isSupport2Byte
 import com.sunion.core.ble.toHexString
+import com.sunion.core.ble.toSupportPhoneticLanguageList
 import com.sunion.core.ble.unless
 import com.sunion.core.ble.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -263,6 +264,10 @@ class HomeViewModel @Inject constructor(
             // Toggle sabbath mode
             BleDeviceFeature.TaskCode.ToggleSabbathMode -> {
                 toggleSabbathMode()
+            }
+            // Toggle phonetic language
+            BleDeviceFeature.TaskCode.TogglePhoneticLanguage -> {
+                togglePhoneticLanguage()
             }
             // Determine lock direction
             BleDeviceFeature.TaskCode.DetermineLockDirection -> {
@@ -1530,6 +1535,43 @@ class HomeViewModel @Inject constructor(
                         val isSabbathMode = lockConfig.sabbathMode == BleV3Lock.SabbathMode.CLOSE.value
                         val result = lockConfig80UseCase.setSabbathMode(isSabbathMode)
                         showLog("$functionName to $isSabbathMode result: $result")
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> { showLog("$functionName not support.") }
+        }
+    }
+
+    private fun togglePhoneticLanguage() {
+        val functionName = ::togglePhoneticLanguage.name
+        when (_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockConfig80UseCase.get()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { lockConfig ->
+                        val phoneticLanguage = lockConfig.phoneticLanguage
+                        if(phoneticLanguage.isNotSupport()){
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        } else {
+                            val supportPhoneticLanguageList = lockConfig.supportPhoneticLanguage.toSupportPhoneticLanguageList()
+                            var nextPhoneticLanguage = -1
+                            for (i in supportPhoneticLanguageList.indices) {
+                                val nextIndex = if (i == supportPhoneticLanguageList.lastIndex) 0 else i + 1
+                                nextPhoneticLanguage = supportPhoneticLanguageList[nextIndex]
+                            }
+                            if(phoneticLanguage != nextPhoneticLanguage){
+                                val result = lockConfig80UseCase.setPhoneticLanguage(nextPhoneticLanguage)
+                                val languageName = BleV3Lock.PhoneticLanguage.values().firstOrNull { it.value == nextPhoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
+                                showLog("$functionName to $languageName result: $result")
+                            } else {
+                                val languageName = BleV3Lock.PhoneticLanguage.values().firstOrNull { it.value == phoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
+                                showLog("Already set $languageName language.")
+                            }
+                        }
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -4157,6 +4199,9 @@ class HomeViewModel @Inject constructor(
                     }
                     if (lockConfig.sabbathMode.isNotSupport()) {
                         supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleSabbathMode }
+                    }
+                    if (lockConfig.phoneticLanguage.isNotSupport() || lockConfig.supportPhoneticLanguage == BleV3Lock.SupportPhoneticLanguage.NOT_SUPPORT.value) {
+                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePhoneticLanguage }
                     }
                 }
                 else -> {}
