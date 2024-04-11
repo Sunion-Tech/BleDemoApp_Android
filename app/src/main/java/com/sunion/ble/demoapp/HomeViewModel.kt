@@ -308,13 +308,13 @@ class HomeViewModel @Inject constructor(
             BleDeviceFeature.TaskCode.Restart -> {
                 restart()
             }
-            // Query TokenArray
-            BleDeviceFeature.TaskCode.QueryTokenArray -> {
-                queryTokenArray()
+            // Get TokenArray
+            BleDeviceFeature.TaskCode.GetTokenArray -> {
+                getTokenArray()
             }
-            // Query Token
-            BleDeviceFeature.TaskCode.QueryToken -> {
-                queryToken()
+            // Get Token
+            BleDeviceFeature.TaskCode.GetToken -> {
+                getToken()
             }
             // Add OneTime Token
             BleDeviceFeature.TaskCode.AddOneTimeToken -> {
@@ -332,9 +332,9 @@ class HomeViewModel @Inject constructor(
             BleDeviceFeature.TaskCode.GetAccessCodeArray -> {
                 getAccessCodeArray()
             }
-            // Query Access Code
-            BleDeviceFeature.TaskCode.QueryAccessCode -> {
-                queryAccessCode()
+            // Get Access Code
+            BleDeviceFeature.TaskCode.GetAccessCode -> {
+                getAccessCode()
             }
             // Add Access Code
             BleDeviceFeature.TaskCode.AddAccessCode -> {
@@ -352,9 +352,9 @@ class HomeViewModel @Inject constructor(
             BleDeviceFeature.TaskCode.GetAccessCardArray -> {
                 getAccessCardArray()
             }
-            // Query Access Card
-            BleDeviceFeature.TaskCode.QueryAccessCard -> {
-                queryAccessCard()
+            // Get Access Card
+            BleDeviceFeature.TaskCode.GetAccessCard -> {
+                getAccessCard()
             }
             // Add Access Card
             BleDeviceFeature.TaskCode.AddAccessCard -> {
@@ -376,9 +376,9 @@ class HomeViewModel @Inject constructor(
             BleDeviceFeature.TaskCode.GetFingerprintArray -> {
                 getFingerprintArray()
             }
-            // Query Fingerprint
-            BleDeviceFeature.TaskCode.QueryFingerprint -> {
-                queryFingerprint()
+            // Get Fingerprint
+            BleDeviceFeature.TaskCode.GetFingerprint -> {
+                getFingerprint()
             }
             // Add Fingerprint
             BleDeviceFeature.TaskCode.AddFingerprint -> {
@@ -400,9 +400,9 @@ class HomeViewModel @Inject constructor(
             BleDeviceFeature.TaskCode.GetFaceArray -> {
                 getFaceArray()
             }
-            // Query Face
-            BleDeviceFeature.TaskCode.QueryFace -> {
-                queryFace()
+            // Get Face
+            BleDeviceFeature.TaskCode.GetFace -> {
+                getFace()
             }
             // Add Face
             BleDeviceFeature.TaskCode.AddFace -> {
@@ -456,13 +456,13 @@ class HomeViewModel @Inject constructor(
             BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes -> {
                 getLockSupportedUnlockTypes()
             }
-            // Query User Ability
-            BleDeviceFeature.TaskCode.QueryUserAbility -> {
-                queryUserAbility()
+            // Get User Ability
+            BleDeviceFeature.TaskCode.GetUserAbility -> {
+                getUserAbility()
             }
-            // Query User Count
-            BleDeviceFeature.TaskCode.QueryUserCount -> {
-                queryUserCount()
+            // Get User Count
+            BleDeviceFeature.TaskCode.GetUserCount -> {
+                getUserCount()
             }
             // Is Matter Device
             BleDeviceFeature.TaskCode.IsMatterDevice -> {
@@ -1069,7 +1069,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::getLockConfig.name
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(lockConfigD4UseCase.query()) }
+                flow { emit(lockConfigD4UseCase.get()) }
                     .catch { e -> showLog("$functionName getLockConfig exception $e") }
                     .map { lockConfig ->
                         showLog("$functionName.D4: $lockConfig")
@@ -1080,7 +1080,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         showLog("$functionName.A0: $lockConfig")
@@ -1093,7 +1093,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         showLog("$functionName.80: $lockConfig")
@@ -1131,8 +1131,8 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
-                    .catch { e -> showLog("lockConfigA0UseCase.query() exception $e") }
+                flow { emit(lockConfigA0UseCase.get()) }
+                    .catch { e -> showLog("lockConfigA0UseCase.get() exception $e") }
                     .map { lockConfig ->
                         val value = when (lockConfig.soundType) {
                             0x01 -> if(lockConfig.soundValue == 100) 0 else 100
@@ -1150,8 +1150,8 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
-                    .catch { e -> showLog("lockConfig80UseCase.query() exception $e") }
+                flow { emit(lockConfig80UseCase.get()) }
+                    .catch { e -> showLog("lockConfig80UseCase.get() exception $e") }
                     .map { lockConfig ->
                         val value = when (lockConfig.soundType) {
                             0x01 -> if(lockConfig.soundValue == 100) 0 else 100
@@ -1176,7 +1176,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::toggleVirtualCode.name
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isVirtualCodeOn = lockConfig.virtualCode == BleV2Lock.VirtualCode.CLOSE.value
@@ -1191,7 +1191,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isVirtualCodeOn = lockConfig.virtualCode == BleV3Lock.VirtualCode.CLOSE.value
@@ -1213,7 +1213,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::toggleTwoFA.name
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isTwoFAOn = lockConfig.twoFA == BleV2Lock.TwoFA.CLOSE.value
@@ -1227,7 +1227,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isTwoFAOn = lockConfig.twoFA == BleV3Lock.TwoFA.CLOSE.value
@@ -1264,7 +1264,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isVacationModeOn = lockConfig.vacationMode == BleV2Lock.VacationMode.CLOSE.value
@@ -1279,7 +1279,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isVacationModeOn = lockConfig.vacationMode == BleV3Lock.VacationMode.CLOSE.value
@@ -1317,7 +1317,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isGuidingCodeOn = lockConfig.guidingCode == BleV2Lock.GuidingCode.CLOSE.value
@@ -1332,7 +1332,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isGuidingCodeOn = lockConfig.guidingCode == BleV3Lock.GuidingCode.CLOSE.value
@@ -1373,7 +1373,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isAutoLock = lockConfig.autoLock == BleV2Lock.AutoLock.CLOSE.value
@@ -1388,7 +1388,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isAutoLock = lockConfig.autoLock == BleV3Lock.AutoLock.CLOSE.value
@@ -1452,7 +1452,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::toggleOperatingSound.name
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isOperatingSoundOn = lockConfig.operatingSound == BleV2Lock.OperatingSound.CLOSE.value
@@ -1467,7 +1467,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isOperatingSoundOn = lockConfig.operatingSound == BleV3Lock.OperatingSound.CLOSE.value
@@ -1489,7 +1489,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::toggleShowFastTrackMode.name
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.query()) }
+                flow { emit(lockConfigA0UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV2Lock.ShowFastTrackMode.CLOSE.value
@@ -1503,7 +1503,7 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV3Lock.ShowFastTrackMode.CLOSE.value
@@ -1524,7 +1524,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::toggleSabbathMode.name
         when (_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.query()) }
+                flow { emit(lockConfig80UseCase.get()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { lockConfig ->
                         val isSabbathMode = lockConfig.sabbathMode == BleV3Lock.SabbathMode.CLOSE.value
@@ -1799,9 +1799,9 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun queryTokenArray(){
-        val functionName = ::queryTokenArray.name
-        flow { emit(lockTokenUseCase.queryTokenArray()) }
+    private fun getTokenArray(){
+        val functionName = ::getTokenArray.name
+        flow { emit(lockTokenUseCase.getTokenArray()) }
             .catch { e -> showLog("$functionName exception $e") }
             .map { tokenArray ->
                 tokenArray.forEach { index ->
@@ -1815,13 +1815,13 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun queryToken(){
-        val functionName = ::queryToken.name
-        flow { emit(lockTokenUseCase.queryTokenArray()) }
+    private fun getToken(){
+        val functionName = ::getToken.name
+        flow { emit(lockTokenUseCase.getTokenArray()) }
             .catch { e -> showLog("$functionName array exception $e") }
             .map { tokenArray ->
                 tokenArray.forEach { index ->
-                    val deviceToken = lockTokenUseCase.queryToken(index)
+                    val deviceToken = lockTokenUseCase.getToken(index)
                     if(deviceToken.isPermanent){
                         showLog("$functionName[$index] is permanent token: $deviceToken")
                     } else {
@@ -1927,8 +1927,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun queryAccessCode(){
-        val functionName = ::queryAccessCode.name
+    private fun getAccessCode(){
+        val functionName = ::getAccessCode.name
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
                 flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
@@ -1936,7 +1936,7 @@ class HomeViewModel @Inject constructor(
                     .map { list ->
                         val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
                         indexIterable.forEach { index ->
-                            val accessCode = lockAccessCodeUseCase.queryAccessCode(index)
+                            val accessCode = lockAccessCodeUseCase.getAccessCode(index)
                             showLog("$functionName[$index] is access code: $accessCode")
                         }
                     }
@@ -1961,7 +1961,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName array exception $e") }
                     .map { indexIterable ->
                         indexIterable.forEach { index ->
-                            val accessCode = lockAccessUseCase.queryAccessCode(index)
+                            val accessCode = lockAccessUseCase.getAccessCode(index)
                             if(accessCode.type == 0) {
                                 showLog("$functionName[$index] is access code: $accessCode")
                             }
@@ -2025,8 +2025,8 @@ class HomeViewModel @Inject constructor(
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
                 if (userAbility == null){
-                    showLog("$functionName need queryUserAbility first, try again.")
-                    queryUserAbility()
+                    showLog("$functionName need getUserAbility first, try again.")
+                    getUserAbility()
                     return
                 }
                 if(userAbility!!.isMatter){
@@ -2200,8 +2200,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun queryAccessCard(){
-        val functionName = ::queryAccessCard.name
+    private fun getAccessCard(){
+        val functionName = ::getAccessCard.name
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
@@ -2219,7 +2219,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName array exception $e") }
                     .map{ indexIterable ->
                         indexIterable.forEach { index ->
-                            val accessCard = lockAccessUseCase.queryAccessCard(index)
+                            val accessCard = lockAccessUseCase.getAccessCard(index)
                             if(accessCard.type == 1) {
                                 showLog("$functionName[$index] is access card: $accessCard")
                             }
@@ -2270,8 +2270,8 @@ class HomeViewModel @Inject constructor(
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
                 if (userAbility == null){
-                    showLog("$functionName need queryUserAbility first, try again.")
-                    queryUserAbility()
+                    showLog("$functionName need getUserAbility first, try again.")
+                    getUserAbility()
                     return
                 }
                 flow { emit(lockCredentialUseCase.addCredentialCard(index, credentialStatus, userIndex, code)) }
@@ -2455,8 +2455,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun queryFingerprint(){
-        val functionName = ::queryFingerprint.name
+    private fun getFingerprint(){
+        val functionName = ::getFingerprint.name
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
@@ -2474,7 +2474,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName array exception $e") }
                     .map { indexIterable ->
                         indexIterable.forEach { index ->
-                            val fingerprint = lockAccessUseCase.queryFingerprint(index)
+                            val fingerprint = lockAccessUseCase.getFingerprint(index)
                             if(fingerprint.type == 2) {
                                 showLog("$functionName[$index] is Fingerprint: $fingerprint")
                             }
@@ -2523,8 +2523,8 @@ class HomeViewModel @Inject constructor(
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
                 if (userAbility == null){
-                    showLog("$functionName need queryUserAbility first, try again.")
-                    queryUserAbility()
+                    showLog("$functionName need getUserAbility first, try again.")
+                    getUserAbility()
                     return
                 }
                 flow { emit(lockCredentialUseCase.addCredentialFingerPrint(index, credentialStatus, userIndex)) }
@@ -2707,8 +2707,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun queryFace(){
-        val functionName = ::queryFace.name
+    private fun getFace(){
+        val functionName = ::getFace.name
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
                 flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
@@ -2726,9 +2726,9 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName array exception $e") }
                     .map { indexIterable ->
                         indexIterable.forEach { index ->
-                            val queryFace = lockAccessUseCase.queryFace(index)
-                            if (queryFace.type == 3) {
-                                showLog("$functionName[$index] is face: $queryFace")
+                            val getFace = lockAccessUseCase.getFace(index)
+                            if (getFace.type == 3) {
+                                showLog("$functionName[$index] is face: $getFace")
                             }
                         }
                     }
@@ -2775,8 +2775,8 @@ class HomeViewModel @Inject constructor(
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
                 if (userAbility == null){
-                    showLog("$functionName need queryUserAbility first, try again.")
-                    queryUserAbility()
+                    showLog("$functionName need getUserAbility first, try again.")
+                    getUserAbility()
                     return
                 }
                 flow { emit(lockCredentialUseCase.addCredentialFace(index, credentialStatus, userIndex)) }
@@ -2936,8 +2936,8 @@ class HomeViewModel @Inject constructor(
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
                 if (userAbility == null){
-                    showLog("$functionName need queryUserAbility first, try again.")
-                    queryUserAbility()
+                    showLog("$functionName need getUserAbility first, try again.")
+                    getUserAbility()
                     return
                 }
                 flow { emit(lockCredentialUseCase.addCredentialFingerVein(index, credentialStatus, userIndex)) }
@@ -3113,11 +3113,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun queryUserAbility() {
-        val functionName = ::queryUserAbility.name
+    private fun getUserAbility() {
+        val functionName = ::getUserAbility.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUtilityUseCase.queryUserAbility()) }
+                flow { emit(lockUtilityUseCase.getUserAbility()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3136,11 +3136,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun queryUserCount() {
-        val functionName = ::queryUserCount.name
+    private fun getUserCount() {
+        val functionName = ::getUserCount.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUtilityUseCase.queryUserCount()) }
+                flow { emit(lockUtilityUseCase.getUserCount()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3211,7 +3211,7 @@ class HomeViewModel @Inject constructor(
                         val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
                         Timber.d("indexIterable: $indexIterable")
                         indexIterable.forEach { index ->
-                            val user = lockUserUseCase.queryUser(index)
+                            val user = lockUserUseCase.getUser(index)
                             showLog("$functionName[$index] result: $user")
                         }
                     }
@@ -3239,8 +3239,8 @@ class HomeViewModel @Inject constructor(
         val weekDaySchedule = mutableListOf<BleV3Lock.WeekDaySchedule>()
         val yearDaySchedule = mutableListOf<BleV3Lock.YearDaySchedule>()
         if (userAbility == null){
-            showLog("$functionName need queryUserAbility first, try again.")
-            queryUserAbility()
+            showLog("$functionName need getUserAbility first, try again.")
+            getUserAbility()
             return
         }
         val timestamp = System.currentTimeMillis()
@@ -3308,8 +3308,8 @@ class HomeViewModel @Inject constructor(
         val weekDaySchedule = mutableListOf<BleV3Lock.WeekDaySchedule>()
         val yearDaySchedule = mutableListOf<BleV3Lock.YearDaySchedule>()
         if (userAbility == null){
-            showLog("$functionName need queryUserAbility first, try again.")
-            queryUserAbility()
+            showLog("$functionName need getUserAbility first, try again.")
+            getUserAbility()
             return
         }
         val timestamp = System.currentTimeMillis()
@@ -4100,7 +4100,7 @@ class HomeViewModel @Inject constructor(
                         supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleSecurityBolt }
                         supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AutoUnlockToggleSecurityBolt }
                     }
-                    showLog("Please execute Get lock config and Query user ability to update support task list after admin code already exist.")
+                    showLog("Please execute Get lock config and Get user ability to update support task list after admin code already exist.")
                 }
                 else -> {}
             }
@@ -4168,14 +4168,14 @@ class HomeViewModel @Inject constructor(
         if(supportedUnlockType != null && !isCheckUnLockType) {
             if(supportedUnlockType.accessCodeQuantity.isNotSupport2Byte()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCodeArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCode }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCode }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCode }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCode }
             }
             if(supportedUnlockType.accessCardQuantity.isNotSupport2Byte()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCardArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCard }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCard }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCard }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCard }
@@ -4183,7 +4183,7 @@ class HomeViewModel @Inject constructor(
             }
             if(supportedUnlockType.fingerprintQuantity.isNotSupport2Byte()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFingerprintArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFingerprint }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFingerprint }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFingerprint }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFingerprint }
@@ -4191,7 +4191,7 @@ class HomeViewModel @Inject constructor(
             }
             if(supportedUnlockType.faceQuantity.isNotSupport2Byte()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFaceArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFace }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFace }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFace }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFace }
@@ -4204,14 +4204,14 @@ class HomeViewModel @Inject constructor(
         if(userAbility != null && !isCheckUnLockType) {
             if(userAbility.codeCredentialCount.isNotSupport()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCodeArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCode }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCode }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCode }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCode }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCode }
             }
             if(userAbility.cardCredentialCount.isNotSupport()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCardArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryAccessCard }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetAccessCard }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddAccessCard }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditAccessCard }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteAccessCard }
@@ -4219,7 +4219,7 @@ class HomeViewModel @Inject constructor(
             }
             if(userAbility.fpCredentialCount.isNotSupport()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFingerprintArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFingerprint }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFingerprint }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFingerprint }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFingerprint }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFingerprint }
@@ -4227,7 +4227,7 @@ class HomeViewModel @Inject constructor(
             }
             if(userAbility.faceCredentialCount.isNotSupport()){
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFaceArray }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.QueryFace }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.GetFace }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AddFace }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.EditFace }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.DeleteFace }
