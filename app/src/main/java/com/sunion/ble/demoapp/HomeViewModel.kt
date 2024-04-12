@@ -16,6 +16,7 @@ import com.sunion.core.ble.exception.LockStatusException
 import com.sunion.core.ble.isDeviceUuid
 import com.sunion.core.ble.isNotSupport
 import com.sunion.core.ble.isNotSupport2Byte
+import com.sunion.core.ble.isSupport
 import com.sunion.core.ble.isSupport2Byte
 import com.sunion.core.ble.toHexString
 import com.sunion.core.ble.toSupportPhoneticLanguageList
@@ -109,6 +110,8 @@ class HomeViewModel @Inject constructor(
     private var currentConnectMacAddress: String? = null
     private var userAbility: BleV3Lock.UserAbility? = null
     private var lastCodeCardIndex = 0
+    private var lastCodeIndex = 0
+    private var lastCardIndex = 0
     private var lastFingerprintIndex = 0
     private var lastFingerVeinIndex = 0
     private var lastFaceIndex = 0
@@ -351,7 +354,7 @@ class HomeViewModel @Inject constructor(
             }
             // Delete Access Code
             BleDeviceFeature.TaskCode.DeleteAccessCode -> {
-                deleteAccessCode(lastCodeCardIndex)
+                deleteAccessCode(lastCodeIndex)
             }
             // Get Access Card Array
             BleDeviceFeature.TaskCode.GetAccessCardArray -> {
@@ -371,7 +374,7 @@ class HomeViewModel @Inject constructor(
             }
             // Delete Access Card
             BleDeviceFeature.TaskCode.DeleteAccessCard -> {
-                deleteAccessCard(lastCodeCardIndex)
+                deleteAccessCard(lastCardIndex)
             }
             // Device Get Access Card
             BleDeviceFeature.TaskCode.DeviceGetAccessCard -> {
@@ -496,6 +499,10 @@ class HomeViewModel @Inject constructor(
             // Get Credential Array
             BleDeviceFeature.TaskCode.GetCredentialArray -> {
                 getCredentialArray()
+            }
+            // Get Credential
+            BleDeviceFeature.TaskCode.GetCredential -> {
+                getCredential()
             }
             // Get Credential By Credential
             BleDeviceFeature.TaskCode.GetCredentialByCredential -> {
@@ -1931,7 +1938,7 @@ class HomeViewModel @Inject constructor(
                     .map { accessCodeArray ->
                         accessCodeArray.forEachIndexed { index, value ->
                             if (value) {
-                                lastCodeCardIndex = index
+                                lastCodeIndex = index
                             }
                         }
                         showLog("$functionName: $accessCodeArray")
@@ -2035,7 +2042,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nresult: $result")
                         if(result){
-                            lastCodeCardIndex += 1
+                            lastCodeIndex += 1
                         }
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2051,6 +2058,7 @@ class HomeViewModel @Inject constructor(
                             val isSuccess = lockAccessUseCase.addAccessCode(index, isEnabled, scheduleType, name, code)
                             showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nisSuccess: $isSuccess")
                             if(isSuccess.isSuccess){
+                                lastCodeIndex = index
                                 lastCodeCardIndex += 1
                             }
                         } else {
@@ -2065,21 +2073,29 @@ class HomeViewModel @Inject constructor(
             }
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
-                val userIndex = lastUserIndex
+                var userIndex = lastUserIndex
                 if (userAbility == null){
                     showLog("$functionName need getUserAbility first, try again.")
                     getUserAbility()
                     return
                 }
-                if(userAbility!!.isMatter){
-                    flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
-                        .catch { e -> showLog("$functionName exception $e") }
-                }
-                flow { emit(lockCredentialUseCase.addCredentialCode(index, credentialStatus, userIndex, code)) }
+                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        if (userAbility!!.codeCredentialCount.isSupport()) {
+                            if (userAbility!!.codeCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.PIN.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                                userIndex += 1
+                            }
+                            lockCredentialUseCase.addCredentialCode(index, credentialStatus, userIndex, code)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
                         if(result){
+                            lastCodeIndex = index
                             lastCodeCardIndex += 1
                             lastCredentialIndex += 1
                         }
@@ -2101,7 +2117,7 @@ class HomeViewModel @Inject constructor(
         val isEnabled = true
         val name = "User $lastCodeCardIndex ed"
         val code = "2345"
-        val index = lastCodeCardIndex
+        val index = lastCodeIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
@@ -2161,7 +2177,7 @@ class HomeViewModel @Inject constructor(
                     .map { result ->
                         showLog("$functionName[$index]\nresult: $result")
                         if(result){
-                            lastCodeCardIndex -= 1
+                            lastCodeIndex -= 1
                         }
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -2178,6 +2194,7 @@ class HomeViewModel @Inject constructor(
                             showLog("$functionName[$index]\nisSuccess: $isSuccess")
                             if(isSuccess){
                                 lastCodeCardIndex -= 1
+                                lastCodeIndex -= 1
                             }
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -2197,6 +2214,7 @@ class HomeViewModel @Inject constructor(
                         if(result){
                             lastCodeCardIndex -= 1
                             lastCredentialIndex -= 1
+                            lastCodeIndex -= 1
                         }
                     }
                     .catch { e -> showLog("$functionName exception $e") }
@@ -2263,6 +2281,7 @@ class HomeViewModel @Inject constructor(
                         indexIterable.forEach { index ->
                             val accessCard = lockAccessUseCase.getAccessCard(index)
                             if(accessCard.type == 1) {
+                                lastCardIndex = index
                                 showLog("$functionName[$index] is access card: $accessCard")
                             }
                         }
@@ -2297,6 +2316,7 @@ class HomeViewModel @Inject constructor(
                             showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: ${code.accessByteArrayToString()} scheduleType: $scheduleType\nisSuccess: $isSuccess")
                             if(isSuccess.isSuccess){
                                 lastCodeCardIndex += 1
+                                lastCardIndex = index
                             }
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -2310,19 +2330,31 @@ class HomeViewModel @Inject constructor(
             }
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
-                val userIndex = lastUserIndex
+                var userIndex = lastUserIndex
                 if (userAbility == null){
                     showLog("$functionName need getUserAbility first, try again.")
                     getUserAbility()
                     return
                 }
-                flow { emit(lockCredentialUseCase.addCredentialCard(index, credentialStatus, userIndex, code)) }
+                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
-                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: ${code.accessByteArrayToString()}\nresult: $result")
+                        if (userAbility!!.cardCredentialCount.isSupport()) {
+                            if (userAbility!!.cardCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.RFID.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                                userIndex += 1
+                            }
+                            lockCredentialUseCase.addCredentialCard(index, credentialStatus, userIndex, code)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
                         if(result){
                             lastCodeCardIndex += 1
                             lastCredentialIndex += 1
+                            lastCardIndex = index
                         }
                     }
                     .catch { e -> showLog("$functionName exception $e") }
@@ -2342,7 +2374,7 @@ class HomeViewModel @Inject constructor(
         val isEnabled = true
         val name = "User $lastCodeCardIndex ed"
         val code =  byteArrayOf(0x88.toByte(), 0x04, 0x37, 0x75, 0x6A, 0x57, 0x58, 0x81.toByte())
-        val index = lastCodeCardIndex
+        val index = lastCardIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
@@ -2394,6 +2426,7 @@ class HomeViewModel @Inject constructor(
                             showLog("$functionName[$index]\nisSuccess: $isSuccess")
                             if(isSuccess){
                                 lastCodeCardIndex -= 1
+                                lastCardIndex -= 1
                             }
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
@@ -2413,6 +2446,7 @@ class HomeViewModel @Inject constructor(
                         if(result){
                             lastCodeCardIndex -= 1
                             lastCredentialIndex -= 1
+                            lastCardIndex -= 1
                         }
                     }
                     .catch { e -> showLog("$functionName exception $e") }
@@ -2563,13 +2597,24 @@ class HomeViewModel @Inject constructor(
             }
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
-                val userIndex = lastUserIndex
+                var userIndex = lastUserIndex
                 if (userAbility == null){
                     showLog("$functionName need getUserAbility first, try again.")
                     getUserAbility()
                     return
                 }
-                flow { emit(lockCredentialUseCase.addCredentialFingerPrint(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        if (userAbility!!.fpCredentialCount.isSupport()) {
+                            if (userAbility!!.fpCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FINGERPRINT.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                                userIndex += 1
+                            }
+                            lockCredentialUseCase.addCredentialFingerPrint(index, credentialStatus, userIndex)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -2815,13 +2860,24 @@ class HomeViewModel @Inject constructor(
             }
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
-                val userIndex = lastUserIndex
+                var userIndex = lastUserIndex
                 if (userAbility == null){
                     showLog("$functionName need getUserAbility first, try again.")
                     getUserAbility()
                     return
                 }
-                flow { emit(lockCredentialUseCase.addCredentialFace(index, credentialStatus, userIndex)) }
+                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        if (userAbility!!.faceCredentialCount.isSupport()) {
+                            if (userAbility!!.faceCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FACE.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                                userIndex += 1
+                            }
+                            lockCredentialUseCase.addCredentialFace(index, credentialStatus, userIndex)
+                        } else {
+                            throw LockStatusException.LockFunctionNotSupportException()
+                        }
+                    }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
@@ -3453,6 +3509,47 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun getCredential() {
+        val functionName = ::getCredential.name
+        when(_currentDeviceStatus){
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockCredentialUseCase.getCredentialArray()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        result.forEachIndexed { index, value ->
+                            if (value) {
+                                lastCredentialIndex = index
+                                val credential = lockCredentialUseCase.getCredentialByCredential(index)
+                                showLog("$functionName credential[$index]: $credential")
+                                if(credential.type == BleV3Lock.CredentialType.PIN.value){
+                                    lastCodeIndex = index
+                                    lastCodeCardIndex = index
+                                }
+                                if(credential.type == BleV3Lock.CredentialType.RFID.value){
+                                    lastCardIndex = index
+                                    lastCodeCardIndex = index
+                                }
+                                if(credential.type == BleV3Lock.CredentialType.FINGERPRINT.value){
+                                    lastFingerprintIndex = index
+                                }
+                                if(credential.type == BleV3Lock.CredentialType.FACE.value){
+                                    lastFaceIndex = index
+                                }
+                            }
+                        }
+                    }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                showLog("$functionName not support.")
+            }
+        }
+    }
+
     private fun getCredentialByCredential() {
         val functionName = ::getCredentialByCredential.name
         val index = lastCredentialIndex
@@ -4049,7 +4146,7 @@ class HomeViewModel @Inject constructor(
                 { throwable ->
                     // 處理錯誤
                     Timber.e("Scan error: $throwable")
-                    showLog("Ble Scan error: Can't not get lock info with $uuid.")
+                    showLog("Ble Scan error: Can't not get lock info with $uuid with 30 seconds timeout.")
                 },
                 {
                     // 處理掃描完成事件
