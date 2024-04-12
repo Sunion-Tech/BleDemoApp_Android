@@ -119,7 +119,7 @@ class HomeViewModel @Inject constructor(
     private var lastEventLogIndex = 0
     private var lastUserIndex = 0
     private var lastCredentialIndex = 0
-    private var lastUnsyncedData: User.NinetyB? = null
+    private var lastUnsyncedData: Data.NinetyB? = null
     private var isCheckDeviceStatus = false
     private var isCheckLockConfig = false
     private var isCheckUnLockType = false
@@ -1752,6 +1752,9 @@ class HomeViewModel @Inject constructor(
                 showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
             }
             is Access -> {
+                showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
+            }
+            is Credential -> {
                 showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
             }
             else -> {
