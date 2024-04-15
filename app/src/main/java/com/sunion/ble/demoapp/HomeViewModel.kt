@@ -113,7 +113,6 @@ class HomeViewModel @Inject constructor(
     private var lastCodeIndex = 0
     private var lastCardIndex = 0
     private var lastFingerprintIndex = 0
-    private var lastFingerVeinIndex = 0
     private var lastFaceIndex = 0
     private val _currentAccessA9Data = MutableStateFlow(Access.A9(-1,-1,-1,false, byteArrayOf()))
     val currentAccessA9Data: StateFlow<Access.A9> = _currentAccessA9Data
@@ -431,22 +430,6 @@ class HomeViewModel @Inject constructor(
             // Device Get Face
             BleDeviceFeature.TaskCode.DeviceGetFace -> {
                 deviceGetFace()
-            }
-            // Add Credential Finger Vein
-            BleDeviceFeature.TaskCode.AddCredentialFingerVein -> {
-                addCredentialFingerVein()
-            }
-            // Edit Credential Finger Vein
-            BleDeviceFeature.TaskCode.EditCredentialFingerVein -> {
-                editCredentialFingerVein()
-            }
-            // Delete Credential Finger Vein
-            BleDeviceFeature.TaskCode.DeleteCredentialFingerVein -> {
-                deleteCredentialFingerVein(lastFingerVeinIndex)
-            }
-            // Device Get Credential Finger Vein
-            BleDeviceFeature.TaskCode.DeviceGetCredentialFingerVein -> {
-                deviceGetCredentialFingerVein()
             }
             // Get Event Quantity
             BleDeviceFeature.TaskCode.GetEventQuantity -> {
@@ -3160,110 +3143,6 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> Timber.e("$functionName: exception $e") }
                     .flowOn(Dispatchers.IO)
                     .launchIn(viewModelScope)
-            }
-        }
-    }
-
-    private fun addCredentialFingerVein() {
-        val functionName = ::addCredentialFingerVein.name
-        val index = lastFingerVeinIndex + 1
-        val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
-        val userIndex = lastUserIndex
-        when(_currentDeviceStatus){
-            is DeviceStatus.EightTwo -> {
-                if (userAbility == null){
-                    showLog("$functionName need getUserAbility first, try again.")
-                    getUserAbility()
-                    return
-                }
-                flow { emit(lockCredentialUseCase.addCredentialFingerVein(index, credentialStatus, userIndex)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
-                        if(result){
-                            lastFingerVeinIndex += 1
-                            lastCredentialIndex += 1
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> {
-                showLog("$functionName not support.")
-            }
-        }
-    }
-
-    private fun editCredentialFingerVein() {
-        val functionName = ::editCredentialFingerVein.name
-        val index = lastFingerVeinIndex
-        val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
-        val userIndex = lastUserIndex
-        when(_currentDeviceStatus){
-            is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.editCredentialFingerVein(index, credentialStatus, userIndex)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex\nresult: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> {
-                showLog("$functionName not support.")
-            }
-        }
-    }
-
-    private fun deleteCredentialFingerVein(index: Int) {
-        val functionName = ::deleteCredentialFingerVein.name
-        when(_currentDeviceStatus){
-            is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index result: $result")
-                        if(result){
-                            lastFingerVeinIndex -= 1
-                            lastCredentialIndex -= 1
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> {
-                showLog("$functionName not support.")
-            }
-        }
-    }
-
-    private fun deviceGetCredentialFingerVein(){
-        val functionName = ::deviceGetCredentialFingerVein.name
-        val index = lastFingerVeinIndex + 2
-        when(_currentDeviceStatus){
-            is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deviceGetCredentialFingerVein(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> {
-                showLog("$functionName not support.")
             }
         }
     }
