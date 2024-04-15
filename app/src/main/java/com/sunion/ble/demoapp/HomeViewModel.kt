@@ -115,6 +115,10 @@ class HomeViewModel @Inject constructor(
     private var lastFingerprintIndex = 0
     private var lastFingerVeinIndex = 0
     private var lastFaceIndex = 0
+    private val _currentAccessA9Data = MutableStateFlow(Access.A9(-1,-1,-1,false, byteArrayOf()))
+    val currentAccessA9Data: StateFlow<Access.A9> = _currentAccessA9Data
+    private val _currentCredential97Data = MutableStateFlow(Credential.NinetySeven(-1,-1,-1,0, byteArrayOf()))
+    val currentCredential97Data: StateFlow<Credential.NinetySeven> = _currentCredential97Data
     private var lastTokenIndex = 0
     private var lastEventLogIndex = 0
     private var lastUserIndex = 0
@@ -1753,9 +1757,73 @@ class HomeViewModel @Inject constructor(
             }
             is Access -> {
                 showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
+                when(sunionBleNotification){
+                    is Access.A9 -> {
+                        when(sunionBleNotification.type){
+                            Access.Type.CARD.value -> {
+                                //AccessCard
+                                if (sunionBleNotification.data.accessByteArrayToString().isNotBlank()) {
+                                    _currentAccessA9Data.value = sunionBleNotification
+                                    deviceExitAccess(currentAccessA9Data.value.type, currentAccessA9Data.value.index)
+                                }
+                            }
+                            Access.Type.FINGERPRINT.value -> {
+                                //Fingerprint
+                                if (sunionBleNotification.data.accessByteArrayToString().isNotBlank()) {
+                                    _currentAccessA9Data.value = sunionBleNotification
+                                    if(sunionBleNotification.data.accessByteArrayToString() == "100") {
+                                        deviceExitAccess(currentAccessA9Data.value.type, currentAccessA9Data.value.index)
+                                    }
+                                }
+                            }
+                            Access.Type.FACE.value -> {
+                                //Face
+                                if (sunionBleNotification.data.accessByteArrayToString().isNotBlank()) {
+                                    _currentAccessA9Data.value = sunionBleNotification
+                                    if(sunionBleNotification.data.accessByteArrayToString() == "100") {
+                                        deviceExitAccess(currentAccessA9Data.value.type, currentAccessA9Data.value.index)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> {}
+                }
             }
             is Credential -> {
                 showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
+                when(sunionBleNotification){
+                    is Credential.NinetySeven -> {
+                        when(sunionBleNotification.type){
+                            BleV3Lock.CredentialType.RFID.value -> {
+                                //AccessCard
+                                if (sunionBleNotification.data.accessByteArrayToString().isNotBlank()) {
+                                    _currentCredential97Data.value = sunionBleNotification
+                                    deviceExitCredential(currentCredential97Data.value.type, currentCredential97Data.value.index)
+                                }
+                            }
+                            BleV3Lock.CredentialType.FINGERPRINT.value -> {
+                                //Fingerprint
+                                if (sunionBleNotification.data.accessByteArrayToString().isNotBlank()) {
+                                    _currentCredential97Data.value = sunionBleNotification
+                                    if(currentCredential97Data.value.data.accessByteArrayToString() == "100") {
+                                        deviceExitCredential(currentCredential97Data.value.type, currentCredential97Data.value.index)
+                                    }
+                                }
+                            }
+                            BleV3Lock.CredentialType.FACE.value -> {
+                                //Face
+                                if (sunionBleNotification.data.accessByteArrayToString().isNotBlank()) {
+                                    _currentCredential97Data.value = sunionBleNotification
+                                    if(currentCredential97Data.value.data.accessByteArrayToString() == "100") {
+                                        deviceExitCredential(currentCredential97Data.value.type, currentCredential97Data.value.index)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else -> {}
+                }
             }
             else -> {
                 showLog("Unknown device status or alert!!")
@@ -2305,8 +2373,6 @@ class HomeViewModel @Inject constructor(
         val functionName = ::addAccessCard.name
         val isEnabled = true
         val name = "User ${lastCodeCardIndex + 1}"
-        val code = byteArrayOf(0x00, 0x00, 0x00, 0x00, 0xFC.toByte(),
-            0xE8.toByte(), 0xFA.toByte(), 0x5B)
         val index = lastCodeCardIndex + 1
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
@@ -2315,6 +2381,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         if(result.accessCardQuantity.isSupport2Byte()) {
+                            val code = currentAccessA9Data.value.data
                             val isSuccess = lockAccessUseCase.addAccessCard(index, isEnabled, scheduleType, name, code)
                             showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: ${code.accessByteArrayToString()} scheduleType: $scheduleType\nisSuccess: $isSuccess")
                             if(isSuccess.isSuccess){
@@ -2343,6 +2410,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         if (userAbility!!.cardCredentialCount.isSupport()) {
+                            val code = currentCredential97Data.value.data
                             if (userAbility!!.cardCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.RFID.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
                                 userIndex += 1
                             }
@@ -2353,7 +2421,7 @@ class HomeViewModel @Inject constructor(
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
-                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: $code\nresult: $result")
+                        showLog("$functionName index: $index credentialStatus: $credentialStatus userIndex: $userIndex code: ${currentCredential97Data.value.data.accessByteArrayToString()}\nresult: $result")
                         if(result){
                             lastCodeCardIndex += 1
                             lastCredentialIndex += 1
@@ -2376,7 +2444,6 @@ class HomeViewModel @Inject constructor(
         val functionName = ::editAccessCard.name
         val isEnabled = true
         val name = "User $lastCodeCardIndex ed"
-        val code =  byteArrayOf(0x88.toByte(), 0x04, 0x37, 0x75, 0x6A, 0x57, 0x58, 0x81.toByte())
         val index = lastCardIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
@@ -2385,6 +2452,7 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
                     .map { result ->
                         if(result.accessCardQuantity.isSupport2Byte()) {
+                            val code = currentAccessA9Data.value.data
                             val isSuccess = lockAccessUseCase.editAccessCard(index, isEnabled, scheduleType, name, code)
                             showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: ${code.accessByteArrayToString()} scheduleType: $scheduleType\nisSuccess: $isSuccess")
                         } else {
@@ -2400,6 +2468,7 @@ class HomeViewModel @Inject constructor(
             is DeviceStatus.EightTwo -> {
                 val credentialStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
                 val userIndex = lastUserIndex
+                val code = currentCredential97Data.value.data
                 flow { emit(lockCredentialUseCase.editCredentialCard(index, credentialStatus, userIndex, code)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
@@ -3025,6 +3094,72 @@ class HomeViewModel @Inject constructor(
             }
             else -> {
                 showLog("$functionName not support.")
+            }
+        }
+    }
+
+    private fun deviceExitAccess(accessType: Int, index:Int) {
+        val functionName = ::deviceExitAccess.name
+        when(accessType){
+            Access.Type.CARD.value -> {
+                flow { emit(lockAccessUseCase.deviceExitAccessCard(index)) }
+                    .map { result ->
+                        Timber.d("$functionName: $result\n")
+                    }
+                    .catch { e -> Timber.e("$functionName: exception $e") }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            Access.Type.FINGERPRINT.value-> {
+                flow { emit(lockAccessUseCase.deviceExitFingerprint(index)) }
+                    .map { result ->
+                        Timber.d("$functionName: $result\n")
+                    }
+                    .catch { e -> Timber.e("$functionName: exception $e") }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            Access.Type.FINGERPRINT.value -> {
+                flow { emit(lockAccessUseCase.deviceExitFace(index)) }
+                    .map { result ->
+                        Timber.d("$functionName: $result\n")
+                    }
+                    .catch { e -> Timber.e("$functionName: exception $e") }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
+    }
+
+    private fun deviceExitCredential(accessType: Int, index:Int) {
+        val functionName = ::deviceExitCredential.name
+        when(accessType){
+            BleV3Lock.CredentialType.RFID.value -> {
+                flow { emit(lockCredentialUseCase.deviceExitCredentialCard(index)) }
+                    .map { result ->
+                        Timber.d("$functionName: $result\n")
+                    }
+                    .catch { e -> Timber.e("$functionName: exception $e") }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            BleV3Lock.CredentialType.FINGERPRINT.value-> {
+                flow { emit(lockCredentialUseCase.deviceExitCredentialFingerprint(index)) }
+                    .map { result ->
+                        Timber.d("$functionName: $result\n")
+                    }
+                    .catch { e -> Timber.e("$functionName: exception $e") }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            BleV3Lock.CredentialType.FACE.value -> {
+                flow { emit(lockCredentialUseCase.deviceExitCredentialFace(index)) }
+                    .map { result ->
+                        Timber.d("$functionName: $result\n")
+                    }
+                    .catch { e -> Timber.e("$functionName: exception $e") }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
             }
         }
     }
