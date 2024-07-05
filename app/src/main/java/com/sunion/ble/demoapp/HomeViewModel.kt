@@ -23,6 +23,7 @@ import com.sunion.core.ble.toSupportPhoneticLanguageList
 import com.sunion.core.ble.unless
 import com.sunion.core.ble.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.reactivex.disposables.Disposable
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import timber.log.Timber
@@ -62,6 +63,7 @@ class HomeViewModel @Inject constructor(
     private val lockUserUseCase: LockUserUseCase,
     private val lockCredentialUseCase: LockCredentialUseCase,
     private val lockDataUseCase: LockDataUseCase,
+    private val lockBleUserUseCase: LockBleUserUseCase,
     private val deviceApiRepository: DeviceApiRepository,
     private val bleScanUseCase: BleScanUseCase,
     private val application: Application,
@@ -97,11 +99,11 @@ class HomeViewModel @Inject constructor(
     private var connectToWifiJob: Job? = null
 
     private var currentFileUri: Uri? = null
-    var fileSize: Int = 0
-    val currentTarget = 0 // 0:mcu 1:rf
-    val ivString = ""
-    val signatureV005 = ""
-    val hash256V005 = ""
+    private var fileSize: Int = 0
+    private val currentTarget = 0 // 0:mcu 1:rf
+    private val ivString = ""
+    private val signatureV005 = ""
+    private val hash256V005 = ""
 
     private var adminCode = "0000"
 
@@ -115,9 +117,9 @@ class HomeViewModel @Inject constructor(
     private var lastFingerprintIndex = 0
     private var lastFaceIndex = 0
     private val _currentAccessA9Data = MutableStateFlow(Access.A9(-1,-1,-1,false, byteArrayOf()))
-    val currentAccessA9Data: StateFlow<Access.A9> = _currentAccessA9Data
+    private val currentAccessA9Data: StateFlow<Access.A9> = _currentAccessA9Data
     private val _currentCredential97Data = MutableStateFlow(Credential.NinetySeven(-1,-1,-1,0, byteArrayOf()))
-    val currentCredential97Data: StateFlow<Credential.NinetySeven> = _currentCredential97Data
+    private val currentCredential97Data: StateFlow<Credential.NinetySeven> = _currentCredential97Data
     private var lastTokenIndex = 0
     private var lastEventLogIndex = 0
     private var lastUserIndex = 0
@@ -125,6 +127,8 @@ class HomeViewModel @Inject constructor(
     private var isCheckDeviceStatus = false
     private var isCheckLockConfig = false
     private var isCheckUnLockType = false
+    private var disposable: Disposable? = null
+    private val identity: String = ""
 
     fun init() {
         Timber.d("init")
@@ -225,10 +229,6 @@ class HomeViewModel @Inject constructor(
             // Toggle security bolt
             BleDeviceFeature.TaskCode.ToggleSecurityBolt -> {
                 toggleSecurityBolt()
-            }
-            // Auto unlock toggle lock state
-            BleDeviceFeature.TaskCode.AutoUnlockToggleSecurityBolt -> {
-                autoUnlockToggleSecurityBolt()
             }
             // Toggle key press beep
             BleDeviceFeature.TaskCode.ToggleKeyPressBeep -> {
@@ -538,7 +538,7 @@ class HomeViewModel @Inject constructor(
 
     private fun connect() {
         val functionName = ::connect.name
-        if(_lockConnectionInfo == null) {
+        if(lockConnectionInfo == null) {
             showLog("Please scan QR code to get lock connection information.")
             return
         }
@@ -604,7 +604,7 @@ class HomeViewModel @Inject constructor(
                     EventState.SUCCESS -> {
                         if (event.status == EventState.SUCCESS && event.data?.first == true) {
                             _uiState.update { it.copy(isLoading = false, isConnectedWithLock = true) }
-                            _lockConnectionInfo = _lockConnectionInfo!!.copy(
+                            _lockConnectionInfo = lockConnectionInfo!!.copy(
                                 permission = statefulConnection.lockConnectionInfo.permission,
                                 keyTwo = statefulConnection.lockConnectionInfo.keyTwo,
                                 permanentToken = statefulConnection.lockConnectionInfo.permanentToken
@@ -613,11 +613,11 @@ class HomeViewModel @Inject constructor(
                             setModelSupportTaskList(lockConnectionInfo!!.model)
                             showLog("$functionName to lock succeed.")
                             // connect with oneTimeToken
-                            if (_lockConnectionInfo!!.permanentToken.isNullOrEmpty()) {
+                            if (lockConnectionInfo!!.permanentToken.isNullOrEmpty()) {
                                 showLog("After pairing with lock, you can get lock connection information from statefulConnection.lockConnectionInfo and save permanent token for later use.")
                             }
                             showLog("Lock connection information:")
-                            showLog("${_lockConnectionInfo}")
+                            showLog("$lockConnectionInfo")
                         }
                     }
                     EventState.LOADING -> {}
@@ -629,12 +629,13 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
         // connect to device
         viewModelScope.launch {
-            showLog("Connecting to ${_lockConnectionInfo!!.macAddress}...")
+            showLog("Connecting to ${lockConnectionInfo!!.macAddress}...")
             statefulConnection.establishConnection(
-                macAddress = _lockConnectionInfo!!.macAddress,
-                keyOne = _lockConnectionInfo!!.keyOne,
-                oneTimeToken = _lockConnectionInfo!!.oneTimeToken,
-                permanentToken = _lockConnectionInfo!!.permanentToken,
+                macAddress = lockConnectionInfo!!.macAddress,
+                keyOne = lockConnectionInfo!!.keyOne,
+                oneTimeToken = lockConnectionInfo!!.oneTimeToken,
+                permanentToken = lockConnectionInfo!!.permanentToken,
+                model = lockConnectionInfo!!.model,
                 isSilentlyFail = false
             )
         }
@@ -1003,40 +1004,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun autoUnlockToggleSecurityBolt() {
-        val functionName = ::autoUnlockToggleSecurityBolt.name
-        when (_currentDeviceStatus) {
-            is DeviceStatus.EightTwo -> {
-                val deviceStatus82 = _currentDeviceStatus as DeviceStatus.EightTwo
-                if (deviceStatus82.securityBolt.isNotSupport()) {
-                    showLog("$functionName not support.")
-                    return
-                }
-                val state: Int = when (deviceStatus82.securityBolt) {
-                    BleV3Lock.SecurityBolt.PROTRUDE.value -> { BleV3Lock.SecurityBolt.NOT_PROTRUDE.value }
-                    BleV3Lock.SecurityBolt.NOT_PROTRUDE.value -> {
-                        showLog("Already not protrude.")
-                        return
-                    }
-                    else -> {
-                        showLog("Unknown security bolt.")
-                        return
-                    }
-                }
-                flow { emit(deviceStatus82UseCase.setAutoUnlockSecurityBolt(state)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to $state result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> { showLog("$functionName not support.") }
-        }
-    }
-
     private fun getLockConfig() {
         val functionName = ::getLockConfig.name
         when (_currentDeviceStatus) {
@@ -1335,9 +1302,9 @@ class HomeViewModel @Inject constructor(
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         if (isAutoLock)
-                            showLog("$functionName to $isAutoLock and auto lock time to $autoLockTime result: $result")
+                            showLog("$functionName to true and auto lock time to $autoLockTime result: $result")
                         else
-                            showLog("$functionName to $isAutoLock result: $result")
+                            showLog("$functionName to false result: $result")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1619,7 +1586,7 @@ class HomeViewModel @Inject constructor(
         flow { emit(lockNameUseCase.getName()) }
             .catch { e -> showLog("$functionName exception $e") }
             .map { name ->
-                showLog("$functionName: ${name}")
+                showLog("$functionName: $name")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1632,7 +1599,7 @@ class HomeViewModel @Inject constructor(
         flow { emit(lockNameUseCase.setName(name)) }
             .catch { e -> showLog("$functionName exception $e") }
             .map { result ->
-                showLog("$functionName to \"$name\" result: ${result}")
+                showLog("$functionName to \"$name\" result: $result")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1645,7 +1612,7 @@ class HomeViewModel @Inject constructor(
         flow { emit(adminCodeUseCase.isAdminCodeExists()) }
             .catch { e -> showLog("$functionName exception $e") }
             .map { result ->
-                showLog("$functionName: ${result}")
+                showLog("$functionName: $result")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1658,7 +1625,7 @@ class HomeViewModel @Inject constructor(
         flow { emit(adminCodeUseCase.createAdminCode(code)) }
             .catch { e -> showLog("$functionName exception $e") }
             .map { result ->
-                showLog("$functionName $code result: ${result}")
+                showLog("$functionName $code result: $result")
             }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1720,13 +1687,13 @@ class HomeViewModel @Inject constructor(
     private fun updateCurrentDeviceStatusOrNotification(sunionBleNotification: SunionBleNotification) {
         when (sunionBleNotification) {
             is DeviceStatus -> {
-                showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentDeviceStatus}")
+                showLog("Current is ${sunionBleNotification::class.simpleName}: $_currentDeviceStatus")
             }
             is Alert -> {
-                showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
+                showLog("Current is ${sunionBleNotification::class.simpleName}: $_currentSunionBleNotification")
             }
             is Access -> {
-                showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
+                showLog("Current is ${sunionBleNotification::class.simpleName}: $_currentSunionBleNotification")
                 when(sunionBleNotification){
                     is Access.A9 -> {
                         when(sunionBleNotification.type){
@@ -1761,7 +1728,7 @@ class HomeViewModel @Inject constructor(
                 }
             }
             is Credential -> {
-                showLog("Current is ${sunionBleNotification::class.simpleName}: ${_currentSunionBleNotification}")
+                showLog("Current is ${sunionBleNotification::class.simpleName}: $_currentSunionBleNotification")
                 when(sunionBleNotification){
                     is Credential.NinetySeven -> {
                         when(sunionBleNotification.type){
@@ -1891,83 +1858,175 @@ class HomeViewModel @Inject constructor(
 
     private fun getTokenArray(){
         val functionName = ::getTokenArray.name
-        flow { emit(lockTokenUseCase.getTokenArray()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { tokenArray ->
-                tokenArray.forEach { index ->
-                    lastTokenIndex = index
-                }
-                showLog("$functionName: $tokenArray")
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockBleUserUseCase.getBleUserArray()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { tokenArray ->
+                        tokenArray.forEach { index ->
+                            lastTokenIndex = index
+                        }
+                        showLog("$functionName: $tokenArray")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+            else -> {
+                flow { emit(lockTokenUseCase.getTokenArray()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { tokenArray ->
+                        tokenArray.forEach { index ->
+                            lastTokenIndex = index
+                        }
+                        showLog("$functionName: $tokenArray")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
     }
 
     private fun getToken(){
         val functionName = ::getToken.name
-        flow { emit(lockTokenUseCase.getTokenArray()) }
-            .catch { e -> showLog("$functionName array exception $e") }
-            .map { tokenArray ->
-                tokenArray.forEach { index ->
-                    val deviceToken = lockTokenUseCase.getToken(index)
-                    if(deviceToken.isPermanent){
-                        showLog("$functionName[$index] is permanent token: $deviceToken")
-                    } else {
-                        showLog("$functionName[$index] is one time token: ${deviceToken.token} name: ${deviceToken.name} permission: ${deviceToken.permission}")
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockBleUserUseCase.getBleUserArray()) }
+                    .catch { e -> showLog("$functionName array exception $e") }
+                    .map { tokenArray ->
+                        tokenArray.forEach { index ->
+                            val deviceToken = lockBleUserUseCase.getBleUser(index)
+                            if(deviceToken.isPermanent){
+                                showLog("$functionName[$index] is permanent token: $deviceToken")
+                            } else {
+                                showLog("$functionName[$index] is one time token: ${deviceToken.token} name: ${deviceToken.name} permission: ${deviceToken.permission}")
+                            }
+                        }
                     }
-                }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+            else -> {
+                flow { emit(lockTokenUseCase.getTokenArray()) }
+                    .catch { e -> showLog("$functionName array exception $e") }
+                    .map { tokenArray ->
+                        tokenArray.forEach { index ->
+                            val deviceToken = lockTokenUseCase.getToken(index)
+                            if(deviceToken.isPermanent){
+                                showLog("$functionName[$index] is permanent token: $deviceToken")
+                            } else {
+                                showLog("$functionName[$index] is one time token: ${deviceToken.token} name: ${deviceToken.name} permission: ${deviceToken.permission}")
+                            }
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
     }
 
     private fun addOneTimeToken(permission: String, name: String) {
         val functionName = ::addOneTimeToken.name
-        flow { emit(lockTokenUseCase.addOneTimeToken(permission, name)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                    showLog("$functionName permission: $permission name: $name\nresult: $result")
-                    if(result.isSuccessful){
-                        lastTokenIndex += 1
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockBleUserUseCase.addOneTimeBleUser(permission, name, identity)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName permission: $permission name: $name\nresult: $result")
+                        if(result.isSuccessful){
+                            lastTokenIndex += 1
+                        }
                     }
-                }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+            else -> {
+                flow { emit(lockTokenUseCase.addOneTimeToken(permission, name)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName permission: $permission name: $name\nresult: $result")
+                        if(result.isSuccessful){
+                            lastTokenIndex += 1
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
     }
 
     private fun editToken(index:Int, permission: String, name: String) {
         val functionName = ::editToken.name
-        flow { emit(lockTokenUseCase.editToken(index, permission, name)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName[$index] permission: $permission name: $name\nresult: $result")
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockBleUserUseCase.editBleUser(index, permission, name, identity)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName[$index] permission: $permission name: $name\nresult: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+            else -> {
+                flow { emit(lockTokenUseCase.editToken(index, permission, name)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName[$index] permission: $permission name: $name\nresult: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
     }
 
     private fun deleteToken(index: Int, code: String = "") {
         val functionName = ::deleteToken.name
-        flow { emit(lockTokenUseCase.deleteToken(index, code)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName[$index] code: $code\nresult: $result")
-                if(result) {
-                    lastTokenIndex -= 1
-                }
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                flow { emit(lockBleUserUseCase.deleteBleUser(index, code)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName[$index] code: $code\nresult: $result")
+                        if(result) {
+                            lastTokenIndex -= 1
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+            else -> {
+                flow { emit(lockTokenUseCase.deleteToken(index, code)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName[$index] code: $code\nresult: $result")
+                        if(result) {
+                            lastTokenIndex -= 1
+                        }
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
     }
 
     private fun getAccessCodeArray(){
@@ -3198,7 +3257,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::getUserAbility.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUtilityUseCase.getUserAbility()) }
+                flow { emit(lockUserUseCase.getUserAbility()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3221,7 +3280,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::getUserCount.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUtilityUseCase.getUserCount()) }
+                flow { emit(lockUserUseCase.getUserCount()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3241,7 +3300,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::isMatterDevice.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUtilityUseCase.isMatterDevice()) }
+                flow { emit(lockUserUseCase.isMatterDevice()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3312,7 +3371,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::addUser.name
         val name = "User ${lastUserIndex + 1}"
         val index = lastUserIndex + 1
-        val uid = index
+        val uid = lastUserIndex + 1
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
         val userType = BleV3Lock.UserType.UNRESTRICTED.value
         val credentialRule = BleV3Lock.CredentialRule.SINGLE.value
@@ -3365,7 +3424,7 @@ class HomeViewModel @Inject constructor(
         val functionName = ::editUser.name
         val name = "User $lastUserIndex ed"
         val index = lastUserIndex
-        val uid = index
+        val uid = lastUserIndex
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
         val userType = BleV3Lock.UserType.DISPOSABLE.value
         val credentialRule = BleV3Lock.CredentialRule.SINGLE.value
@@ -3768,11 +3827,12 @@ class HomeViewModel @Inject constructor(
 
                 Timber.d("qrCodeContent: $qrCodeContent")
                 _lockConnectionInfo = LockConnectionInfo.from(qrCodeContent)
-                Timber.d("_lockConnectionInfo: $_lockConnectionInfo")
+                Timber.d("lockConnectionInfo: $lockConnectionInfo")
                 showLog("Lock connection information:", true)
-                showLog("macAddress: ${_lockConnectionInfo!!.macAddress}")
-                showLog("oneTimeToken: ${_lockConnectionInfo!!.oneTimeToken}")
-                showLog("keyOne: ${_lockConnectionInfo!!.keyOne}")
+                showLog("macAddress: ${lockConnectionInfo!!.macAddress}")
+                showLog("oneTimeToken: ${lockConnectionInfo!!.oneTimeToken}")
+                showLog("keyOne: ${lockConnectionInfo!!.keyOne}")
+                showLog("model: ${lockConnectionInfo!!.model}")
                 showLog("Please execute Connect to pair with lock.")
                 _uiEvent.emit(UiEvent.Complete)
                 _uiState.update { it.copy(btnEnabled = true) }
@@ -3830,7 +3890,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun otaUpdate(target: Int, signature:String) {
+    private fun otaUpdate(target: Int, signature:String) {
         val checkResult = when (signature) {
             signatureV005 -> {
                 fileCheck(hash256V005)
@@ -3859,7 +3919,7 @@ class HomeViewModel @Inject constructor(
                         var blockNumber = 0
                         bytesRead = inputStream.read(buffer)
 
-                        showLog("Send start ${blockNumber * chunkSize} / $fileSize = 0%")
+                        showLog("Send start 0 / $fileSize = 0%")
                         while (bytesRead != -1) {
 
                             val result = lockOTAUseCase.transferOTAData(
@@ -3886,7 +3946,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun fileCheck(checkHash:String): Boolean {
+    private fun fileCheck(checkHash:String): Boolean {
         val functionName = ::fileCheck.name
         if (currentFileUri != null) {
             val contentResolver: ContentResolver = application.contentResolver
@@ -3916,8 +3976,10 @@ class HomeViewModel @Inject constructor(
         return false
     }
 
-    fun startBleScan(uuid: String, productionGetResponse: ProductionGetResponse, isReconnect: Boolean = false) {
-        val disposable = bleScanUseCase.scanUuid(uuid = uuid)
+    private fun startBleScan(uuid: String, productionGetResponse: ProductionGetResponse, isReconnect: Boolean = false) {
+        showLog("Scan and wait for find device...")
+        disposable?.dispose()
+        disposable = bleScanUseCase.scanUuid(uuid = uuid)
             .timeout(30, TimeUnit.SECONDS)
             .take(1)
             .subscribe(
@@ -3938,15 +4000,16 @@ class HomeViewModel @Inject constructor(
                         showLog("Production api or scan ble to get mac address failed.")
                     }
                     if(isReconnect){
-                        _lockConnectionInfo = _lockConnectionInfo!!.copy(macAddress = currentConnectMacAddress!!)
+                        _lockConnectionInfo = lockConnectionInfo!!.copy(macAddress = currentConnectMacAddress!!)
                         connect()
                     } else {
                         _lockConnectionInfo = LockConnectionInfo.from(productionGetResponse, currentConnectMacAddress)
-                        Timber.d("_lockConnectionInfo: $_lockConnectionInfo")
+                        Timber.d("lockConnectionInfo: $lockConnectionInfo")
                         showLog("Lock connection information:", true)
-                        showLog("macAddress: ${_lockConnectionInfo!!.macAddress}")
-                        showLog("oneTimeToken: ${_lockConnectionInfo!!.oneTimeToken}")
-                        showLog("keyOne: ${_lockConnectionInfo!!.keyOne}")
+                        showLog("macAddress: ${lockConnectionInfo!!.macAddress}")
+                        showLog("oneTimeToken: ${lockConnectionInfo!!.oneTimeToken}")
+                        showLog("keyOne: ${lockConnectionInfo!!.keyOne}")
+                        showLog("model: ${lockConnectionInfo!!.model}")
                         showLog("Please execute Connect to pair with lock.")
                         _uiState.update { it.copy(btnEnabled = true) }
                     }
@@ -4020,7 +4083,6 @@ class HomeViewModel @Inject constructor(
                     }
                     if (deviceStatus.securityBolt.isNotSupport()) {
                         supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ToggleSecurityBolt }
-                        supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.AutoUnlockToggleSecurityBolt }
                     }
                     showLog("Please execute Get lock config and Get user ability to update support task list after admin code already exist.")
                 }
