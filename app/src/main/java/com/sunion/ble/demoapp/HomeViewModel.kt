@@ -512,12 +512,34 @@ class HomeViewModel @Inject constructor(
             }
             // Scan Wifi
             BleDeviceFeature.TaskCode.ScanWifi -> {
-                collectWifiList()
-                scanWifi()
+                when(_currentDeviceStatus){
+                    is DeviceStatus.EightTwo -> {
+                        collectWifiList3()
+                        scanWifi3()
+                    }
+                    is DeviceStatus.B0 -> {
+                        collectWifiList3()
+                        scanWifi3()
+                    }
+                    else -> {
+                        collectWifiList()
+                        scanWifi()
+                    }
+                }
             }
             // Connect To Wifi
             BleDeviceFeature.TaskCode.ConnectToWifi -> {
-                connectToWifi("Sunion-SW", "S-device_W")
+                when(_currentDeviceStatus){
+                    is DeviceStatus.EightTwo -> {
+                        connectToWifi3("Sunion-SW", "S-device_W")
+                    }
+                    is DeviceStatus.B0 -> {
+                        connectToWifi3("Sunion-SW", "S-device_W")
+                    }
+                    else -> {
+                        connectToWifi("Sunion-SW", "S-device_W")
+                    }
+                }
             }
             // Set OTA Status
             BleDeviceFeature.TaskCode.SetOTAUpdate -> {
@@ -3751,6 +3773,110 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
 
         flow { emit(lockWifiUseCase.connectToWifi(ssid, password)) }
+            .flowOn(Dispatchers.IO)
+            .onStart {
+                isConnectingToWifi = true
+                _uiState.update { it.copy(isLoading = true) }
+            }
+            .catch {
+                Timber.e("CWifi sender exception $it")
+                showLog("$functionName failed. $it")
+            }
+            .launchIn(viewModelScope)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            delay(120_000)
+            if (isConnectingToWifi) {
+                Timber.e("CWifi timeout")
+                showLog("$functionName failed.")
+            }
+        }
+    }
+
+    private fun collectWifiList3(){
+        val functionName = ::collectWifiList3.name
+        collectWifiListJob?.cancel()
+        collectWifiListJob = lockWifiUseCase.collectWifiList3()
+            .catch { e -> showLog("$functionName exception $e") }
+            .onEach { wifi ->
+                when (wifi) {
+                    WifiList.End -> {
+                        _uiState.update { it.copy(isLoading = false) }
+                        collectWifiListJob?.cancel()
+                        showLog("$functionName end")
+                        if(scanWifiJob != null){
+                            scanWifiJob?.cancel()
+                            scanWifiJob = null
+                        }
+                    }
+                    is WifiList.Wifi -> {
+                        showLog("$functionName result:\nssid: ${wifi.ssid} needPassword: ${wifi.needPassword}")
+                    }
+                }
+            }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+    }
+
+    private fun scanWifi3(){
+        val functionName = ::scanWifi3.name
+        if (scanWifiJob != null) return
+        scanWifiJob = flow { emit(lockWifiUseCase.scanWifi3()) }
+            .onStart { _uiState.update { it.copy(isLoading = true) } }
+            .onCompletion {
+                delay(10000)
+                if(uiState.value.isLoading){
+                    _uiState.update { it.copy(isLoading = false) }
+                }
+                if(scanWifiJob != null){
+                    scanWifiJob?.cancel()
+                    scanWifiJob = null
+                }
+            }
+            .catch { e -> showLog("$functionName exception $e") }
+            .flowOn(Dispatchers.IO)
+            .launchIn(viewModelScope)
+    }
+
+    private fun connectToWifi3(ssid: String, password: String){
+        val functionName = ::connectToWifi3.name
+        if (isCollectingConnectToWifiState) return
+        connectToWifiJob?.cancel()
+        connectToWifiJob = lockWifiUseCase
+            .collectConnectToWifiState3()
+            .flowOn(Dispatchers.IO)
+            .onStart { isCollectingConnectToWifiState = true }
+            .onCompletion { isCollectingConnectToWifiState = false }
+            .onEach { wifiConnectState ->
+                val progressMessage =
+                    when (wifiConnectState) {
+                        WifiConnectState.ConnectWifiSuccess -> "Wifi connected, connecting to cloud service..."
+                        WifiConnectState.ConnectWifiFail -> "Connect to Wi-Fi failed."
+                        WifiConnectState.ConnectAwsSuccess -> "Cloud service connected, syncing data..."
+                        WifiConnectState.ConnectCloudSuccess -> "Data sync completed, bluetooth connection disconnected."
+                        WifiConnectState.Failed -> "Unknown error."
+                    }
+                showLog(progressMessage)
+
+                if (wifiConnectState == WifiConnectState.ConnectCloudSuccess) {
+                    isConnectingToWifi = false
+                    isWifiConnected = true
+                    connectToWifiJob?.cancel()
+                    _uiState.update { it.copy(isLoading = false) }
+                } else if (wifiConnectState == WifiConnectState.ConnectWifiFail) {
+                    Timber.e("CWifiFail")
+                    showLog("$functionName failed, because not had provisionTicket.")
+                }
+            }
+            .catch {
+                Timber.e(it)
+                if (it.message?.contains("Disconnected") == false)
+                    Timber.e("CWifi listener exception $it")
+                showLog("$functionName failed. $it")
+            }
+            .launchIn(viewModelScope)
+
+        flow { emit(lockWifiUseCase.connectToWifi3(ssid, password)) }
             .flowOn(Dispatchers.IO)
             .onStart {
                 isConnectingToWifi = true
