@@ -129,6 +129,7 @@ class HomeViewModel @Inject constructor(
     private var isCheckUnLockType = false
     private var disposable: Disposable? = null
     private val identity: String = ""
+    private var model: String = ""
 
     fun init() {
         Timber.d("init")
@@ -625,6 +626,7 @@ class HomeViewModel @Inject constructor(
                     // connected
                     EventState.SUCCESS -> {
                         if (event.status == EventState.SUCCESS && event.data?.first == true) {
+                            model = lockConnectionInfo!!.model
                             _uiState.update { it.copy(isLoading = false, isConnectedWithLock = true) }
                             _lockConnectionInfo = lockConnectionInfo!!.copy(
                                 permission = statefulConnection.lockConnectionInfo.permission,
@@ -691,28 +693,58 @@ class HomeViewModel @Inject constructor(
 
     private fun getLockTimeZone() {
         val functionName = ::getLockTimeZone.name
-        flow { emit(lockTimeUseCase.getTimeZone()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName result: $result")
+        when(model) {
+            "KDW01" -> {
+                flow { emit(lockTimeUseCase.getWiFiTimeZone()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+            else -> {
+                flow { emit(lockTimeUseCase.getTimeZone()) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
     }
 
     private fun setLockTimeZone() {
         val functionName = ::setLockTimeZone.name
-        flow { emit(lockTimeUseCase.setTimeZone(ZoneId.systemDefault().id)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName to ${ZoneId.systemDefault().id} result: $result")
+        when(model) {
+            "KDW01" -> {
+                flow { emit(lockTimeUseCase.setWiFiTimeZone(ZoneId.systemDefault().id)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName to ${ZoneId.systemDefault().id} result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+            else -> {
+                flow { emit(lockTimeUseCase.setTimeZone(ZoneId.systemDefault().id)) }
+                    .catch { e -> showLog("$functionName exception $e") }
+                    .map { result ->
+                        showLog("$functionName to ${ZoneId.systemDefault().id} result: $result")
+                    }
+                    .onStart { _uiState.update { it.copy(isLoading = true) } }
+                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
+                    .flowOn(Dispatchers.IO)
+                    .launchIn(viewModelScope)
+            }
+        }
     }
 
     private fun getDeviceStatus() {
@@ -4160,10 +4192,15 @@ class HomeViewModel @Inject constructor(
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.SetOTACancel }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
             }
+            "KDW01" -> {
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePlugState }
+            }
             "TNRFp00" -> {
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePlugState }
             }
             "KD01" -> {
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
