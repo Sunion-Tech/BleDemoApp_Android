@@ -500,12 +500,12 @@ class HomeViewModel @Inject constructor(
                 getCredentialByUser()
             }
             // Get Credential Hash
-            BleDeviceFeature.TaskCode.GetCredentialHash -> {
-                getCredentialHash()
+            BleDeviceFeature.TaskCode.GetUserCredentialHash -> {
+                getUserCredentialHash()
             }
             // Get User Hash
-            BleDeviceFeature.TaskCode.GetUserHash -> {
-                getUserHash()
+            BleDeviceFeature.TaskCode.GetBleUserHash -> {
+                getBleUserHash()
             }
             // Set All Data Synced
             BleDeviceFeature.TaskCode.SetAllDataSynced -> {
@@ -2760,7 +2760,7 @@ class HomeViewModel @Inject constructor(
                             if (userAbility!!.fpCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FINGERPRINT.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
                                 userIndex += 1
                             }
-                            lockCredentialUseCase.addCredentialFingerPrint(index, userIndex)
+                            lockCredentialUseCase.addCredentialFingerPrint(index, userIndex, currentCredential97Data.value.index)
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
@@ -2811,7 +2811,7 @@ class HomeViewModel @Inject constructor(
             }
             is DeviceStatus.EightTwo -> {
                 val userIndex = lastUserIndex
-                flow { emit(lockCredentialUseCase.editCredentialFingerPrint(index, userIndex)) }
+                flow { emit(lockCredentialUseCase.editCredentialFingerPrint(index, userIndex, currentCredential97Data.value.index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
@@ -3021,7 +3021,7 @@ class HomeViewModel @Inject constructor(
                             if (userAbility!!.faceCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FACE.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
                                 userIndex += 1
                             }
-                            lockCredentialUseCase.addCredentialFace(index, userIndex)
+                            lockCredentialUseCase.addCredentialFace(index, userIndex, currentCredential97Data.value.index)
                         } else {
                             throw LockStatusException.LockFunctionNotSupportException()
                         }
@@ -3072,7 +3072,7 @@ class HomeViewModel @Inject constructor(
             }
             is DeviceStatus.EightTwo -> {
                 val userIndex = lastUserIndex
-                flow { emit(lockCredentialUseCase.editCredentialFace(index, userIndex)) }
+                flow { emit(lockCredentialUseCase.editCredentialFace(index, userIndex, currentCredential97Data.value.index)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
@@ -3658,11 +3658,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getCredentialHash() {
-        val functionName = ::getCredentialHash.name
+    private fun getUserCredentialHash() {
+        val functionName = ::getUserCredentialHash.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockDataUseCase.getCredentialHash()) }
+                flow { emit(lockDataUseCase.getUserCredentialHash()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
@@ -3679,11 +3679,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getUserHash() {
-        val functionName = ::getUserHash.name
+    private fun getBleUserHash() {
+        val functionName = ::getBleUserHash.name
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockDataUseCase.getUserHash()) }
+                flow { emit(lockDataUseCase.getBleUserHash()) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
                         showLog("$functionName result: $result")
