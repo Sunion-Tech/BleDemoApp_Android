@@ -11,7 +11,7 @@
     <uses-permission-sdk-23 android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" tools:node="replace" />
 
     <application
-        android:name="com.sunion.ble.demoapp.HiltApplication"
+        android:name=".HiltApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"

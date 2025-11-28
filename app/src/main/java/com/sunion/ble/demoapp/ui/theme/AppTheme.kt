@@ -1,9 +1,17 @@
 package com.sunion.ble.demoapp.ui.theme
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.colorResource
+import com.sunion.ble.demoapp.R
 
 object AppTheme {
 
@@ -31,6 +39,14 @@ fun AppTheme(
         LocalColors provides rememberedColors,
         LocalTypography provides typography
     ) {
-        content()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(color = colorResource(R.color.white)) // 底色延伸到透明區域
+                .statusBarsPadding()       // 加上 padding 避免 UI 被狀態列擋住
+                .navigationBarsPadding()   // 避免 UI 被導航列擋住
+        ) {
+            content()
+        }
     }
 }
