@@ -7,6 +7,12 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.workDataOf
+import com.google.gson.Gson
 import com.sunion.ble.demoapp.data.api.DeviceApiRepository
 import com.sunion.core.ble.ReactiveStatefulConnection
 import com.sunion.core.ble.accessByteArrayToString
@@ -101,9 +107,9 @@ class HomeViewModel @Inject constructor(
     private var currentFileUri: Uri? = null
     private var fileSize: Int = 0
     private val currentTarget = 0 // 0:mcu 1:rf
-    private val ivString = ""
-    private val signatureV005 = ""
-    private val hash256V005 = ""
+    private val ivString = "AD4EF44433DD78A9B4955B9D635894DC"
+    private val signatureV005 = "304502210087756DECC4D3F9F524AE6FE15C6B14064C4F444281407302924E1672341660D402204DFAF4DE3185923BA9C271969125A730FD6575311AAB7E624711FD4DD7FFC1FD"
+    private val hash256V005 = "20620A6E461BD1B41A1564493064FFE0B2FA427B80A9472454CB1D3CD022B554"
 
     private var adminCode = "0000"
 
@@ -130,6 +136,7 @@ class HomeViewModel @Inject constructor(
     private var disposable: Disposable? = null
     private val identity: String = ""
     private var model: String = ""
+    private var isBackgroundOTA = false
 
     fun init() {
         Timber.d("init")
@@ -544,7 +551,13 @@ class HomeViewModel @Inject constructor(
             }
             // Set OTA Status
             BleDeviceFeature.TaskCode.SetOTAUpdate -> {
-                otaUpdate(currentTarget, "")
+                if(!isBackgroundOTA) {
+                    // Foreground OTA Update
+                    otaUpdate(currentTarget, signatureV005)
+                } else {
+                    // Background OTA Update
+                    backGroundOTAUpdate()
+                }
             }
             // Set OTA Cancel
             BleDeviceFeature.TaskCode.SetOTACancel -> {
@@ -560,6 +573,17 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun connect() {
+        val workInfos = WorkManager.getInstance(application).getWorkInfosForUniqueWork(WorkerNames.OTA_WORKER).get()
+
+        val isRunningOrEnqueued = workInfos.any {
+            it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.RUNNING
+        }
+
+        if (isRunningOrEnqueued) {
+            showLog("OTA還在背景執行中，無法連線")
+            return
+        }
+
         val functionName = ::connect.name
         if(lockConnectionInfo == null) {
             showLog("Please scan QR code to get lock connection information.")
@@ -3944,6 +3968,9 @@ class HomeViewModel @Inject constructor(
 
     private fun disconnect() {
         val functionName = ::disconnect.name
+        if(isOtaWorkerExist()){
+            WorkerManager.cancel(application, WorkerNames.OTA_WORKER)
+        }
         statefulConnection.disconnect()
         _bleConnectionStateListener?.cancel()
         _bleSunionBleNotificationListener?.cancel()
@@ -3960,6 +3987,10 @@ class HomeViewModel @Inject constructor(
         if(lockConnectionInfo == null){
             showLog("Please scan QR code to get lock connection information.")
         }
+    }
+
+    private fun isOtaWorkerExist() : Boolean {
+        return WorkerManager.isEnqueuedOrRunning(application, WorkerNames.OTA_WORKER)
     }
 
     fun setQRCodeContent(content: String) {
@@ -4098,7 +4129,9 @@ class HomeViewModel @Inject constructor(
                     inputStream.close()
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    lockOTAUseCase.setOTACancel(target)
+                    if (uiState.value.isConnectedWithLock) {
+                        lockOTAUseCase.setOTACancel(target)
+                    }
                 }
             }
         }
@@ -4387,6 +4420,36 @@ class HomeViewModel @Inject constructor(
             Timber.d("$functionName: $supportTaskList")
             _uiState.update { it.copy(taskList = supportTaskList.toTypedArray()) }
         }
+    }
+
+    private fun backGroundOTAUpdate(){
+        if(fileCheck(hash256V005)) {
+            disconnect()
+            startBackgroundTask(lockConnectionInfo)
+        }
+    }
+
+    private fun startBackgroundTask(lockConnectionInfo: LockConnectionInfo?) {
+        if(lockConnectionInfo == null){
+            showLog("lockConnectionInfo is null")
+            return
+        }
+        val gson = Gson()
+        val inputData = workDataOf(
+            "lockInfo" to gson.toJson(lockConnectionInfo),
+            "fileUri" to currentFileUri.toString(),
+            "iv" to ivString,
+            "signature" to signatureV005,
+            "hash256" to hash256V005
+        )
+
+        val request = OneTimeWorkRequestBuilder<OtaWorker>()
+            .setInitialDelay(3, TimeUnit.SECONDS)
+            .setInputData(inputData)
+            .build()
+
+        WorkerManager.enqueueUnique(application, WorkerNames.OTA_WORKER, request, ExistingWorkPolicy.REPLACE)
+        showLog("OTA將於3秒後背景執行")
     }
 
 }

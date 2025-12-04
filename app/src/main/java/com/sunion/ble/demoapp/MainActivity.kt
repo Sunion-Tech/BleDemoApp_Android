@@ -45,6 +45,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestMultiplePermissions.launch(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+            )
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             requestMultiplePermissions.launch(arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
