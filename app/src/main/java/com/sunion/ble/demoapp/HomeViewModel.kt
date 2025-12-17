@@ -14,6 +14,7 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.google.gson.Gson
 import com.sunion.ble.demoapp.data.api.DeviceApiRepository
+import com.sunion.ble.demoapp.data.api.InputAccessCodeData
 import com.sunion.core.ble.ReactiveStatefulConnection
 import com.sunion.core.ble.accessByteArrayToString
 import com.sunion.core.ble.entity.*
@@ -40,6 +41,9 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import javax.inject.Inject
+import kotlin.text.isNotBlank
+import kotlin.text.toIntOrNull
+import kotlin.text.toLongOrNull
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -185,7 +189,7 @@ class HomeViewModel @Inject constructor(
     fun executeTask() {
         if (!checkIsBluetoothEnable()) return
         _uiState.update { it.copy(btnEnabled = false) }
-        when (_uiState.value.taskCode) {
+        when (uiState.value.taskCode) {
             // Connect
             BleDeviceFeature.TaskCode.Connect -> {
                 if(currentQrCodeContent != null && currentQrCodeContent!!.isDeviceUuid() && currentConnectMacAddress == null){
@@ -200,7 +204,7 @@ class HomeViewModel @Inject constructor(
             }
             // Set lock time
             BleDeviceFeature.TaskCode.SetLockTime -> {
-                setLockTime()
+                showInputDialog()
             }
             // Get lock time zone
             BleDeviceFeature.TaskCode.GetLockTimeZone -> {
@@ -208,7 +212,7 @@ class HomeViewModel @Inject constructor(
             }
             // Set lock timezone
             BleDeviceFeature.TaskCode.SetLockTimeZone -> {
-                setLockTimeZone()
+                showInputDialog()
             }
             // Get lock name
             BleDeviceFeature.TaskCode.GetLockName -> {
@@ -216,7 +220,7 @@ class HomeViewModel @Inject constructor(
             }
             // Set lock name
             BleDeviceFeature.TaskCode.SetLockName -> {
-                setLockName(name = "my door lock")
+                showInputDialog()
             }
             // Get DeviceStatus
             BleDeviceFeature.TaskCode.GetDeviceStatus -> {
@@ -252,7 +256,7 @@ class HomeViewModel @Inject constructor(
             }
             // Toggle auto lock
             BleDeviceFeature.TaskCode.ToggleAutoLock -> {
-                toggleAutoLock(10)
+                showInputDialog()
             }
             // Set lock location
             BleDeviceFeature.TaskCode.SetLockLocation -> {
@@ -292,11 +296,11 @@ class HomeViewModel @Inject constructor(
             }
             // Create admin code
             BleDeviceFeature.TaskCode.CreateAdminCode -> {
-                createAdminCode(adminCode)
+                showInputDialog()
             }
             // Update admin code
             BleDeviceFeature.TaskCode.UpdateAdminCode -> {
-                updateAdminCode(adminCode, newCode = "1234")
+                showInputDialog()
             }
             // Get admin code position
             BleDeviceFeature.TaskCode.GetAdminCodePosition -> {
@@ -320,11 +324,11 @@ class HomeViewModel @Inject constructor(
             }
             // Factory reset
             BleDeviceFeature.TaskCode.FactoryReset -> {
-                factoryReset(adminCode)
+                factoryReset()
             }
             // Factory reset
             BleDeviceFeature.TaskCode.FactoryResetNoAdmin -> {
-                factoryReset()
+                factoryResetNoAdmin()
             }
             // Restart
             BleDeviceFeature.TaskCode.Restart -> {
@@ -344,11 +348,12 @@ class HomeViewModel @Inject constructor(
             }
             // Edit Token
             BleDeviceFeature.TaskCode.EditToken -> {
-                editToken(lastTokenIndex,"A","User $lastTokenIndex ed")
+                showInputDialog()
+//                editToken(lastTokenIndex,"A","User $lastTokenIndex ed")
             }
             // Delete Token
             BleDeviceFeature.TaskCode.DeleteToken -> {
-                deleteToken(lastTokenIndex)
+                showInputDialog()
             }
             // Get Access Code Array
             BleDeviceFeature.TaskCode.GetAccessCodeArray -> {
@@ -360,15 +365,15 @@ class HomeViewModel @Inject constructor(
             }
             // Add Access Code
             BleDeviceFeature.TaskCode.AddAccessCode -> {
-                addAccessCode()
+                showAccessCodeInputDialog()
             }
             // Edit Access Code
             BleDeviceFeature.TaskCode.EditAccessCode -> {
-                editAccessCode()
+                showAccessCodeInputDialog()
             }
             // Delete Access Code
             BleDeviceFeature.TaskCode.DeleteAccessCode -> {
-                deleteAccessCode(lastCodeIndex)
+                showInputDialog()
             }
             // Get Access Card Array
             BleDeviceFeature.TaskCode.GetAccessCardArray -> {
@@ -380,15 +385,15 @@ class HomeViewModel @Inject constructor(
             }
             // Add Access Card
             BleDeviceFeature.TaskCode.AddAccessCard -> {
-                addAccessCard()
+                showInputDialog()
             }
             // Edit Access Card
             BleDeviceFeature.TaskCode.EditAccessCard -> {
-                editAccessCard()
+                showInputDialog()
             }
             // Delete Access Card
             BleDeviceFeature.TaskCode.DeleteAccessCard -> {
-                deleteAccessCard(lastCardIndex)
+                showInputDialog()
             }
             // Device Get Access Card
             BleDeviceFeature.TaskCode.DeviceGetAccessCard -> {
@@ -404,15 +409,15 @@ class HomeViewModel @Inject constructor(
             }
             // Add Fingerprint
             BleDeviceFeature.TaskCode.AddFingerprint -> {
-                addFingerprint()
+                showInputDialog()
             }
             // Edit Fingerprint
             BleDeviceFeature.TaskCode.EditFingerprint -> {
-                editFingerprint()
+                showInputDialog()
             }
             // Delete Fingerprint
             BleDeviceFeature.TaskCode.DeleteFingerprint -> {
-                deleteFingerprint(lastFingerprintIndex)
+                showInputDialog()
             }
             // Device Get Fingerprint
             BleDeviceFeature.TaskCode.DeviceGetFingerprint -> {
@@ -428,15 +433,15 @@ class HomeViewModel @Inject constructor(
             }
             // Add Face
             BleDeviceFeature.TaskCode.AddFace -> {
-                addFace()
+                showInputDialog()
             }
             // Edit Face
             BleDeviceFeature.TaskCode.EditFace -> {
-                editFace()
+                showInputDialog()
             }
             // Delete Face
             BleDeviceFeature.TaskCode.DeleteFace -> {
-                deleteFace(lastFaceIndex)
+                showInputDialog()
             }
             // Device Get Face
             BleDeviceFeature.TaskCode.DeviceGetFace -> {
@@ -452,7 +457,7 @@ class HomeViewModel @Inject constructor(
             }
             // Delete Event
             BleDeviceFeature.TaskCode.DeleteEvent -> {
-                deleteEvent(lastEventLogIndex)
+                showInputDialog()
             }
             // Get Lock Supported Unlock Types
             BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes -> {
@@ -480,15 +485,15 @@ class HomeViewModel @Inject constructor(
             }
             // Add User
             BleDeviceFeature.TaskCode.AddUser -> {
-                addUser()
+                showInputDialog()
             }
             // Edit User
             BleDeviceFeature.TaskCode.EditUser -> {
-                editUser()
+                showInputDialog()
             }
             // Delete User
             BleDeviceFeature.TaskCode.DeleteUser -> {
-                deleteUser(lastUserIndex)
+                showInputDialog()
             }
             // Get Credential Array
             BleDeviceFeature.TaskCode.GetCredentialArray -> {
@@ -636,6 +641,10 @@ class HomeViewModel @Inject constructor(
                                         _currentSunionBleNotification = sunionBleNotification
                                         showLog("Incoming ${sunionBleNotification::class.simpleName} arrived.")
                                     }
+                                    is Credential -> {
+                                        _currentSunionBleNotification = sunionBleNotification
+                                        showLog("Incoming ${sunionBleNotification::class.simpleName} arrived.")
+                                    }
                                     else -> {
                                         _currentDeviceStatus = DeviceStatus.UNKNOWN
                                         _currentSunionBleNotification = SunionBleNotification.UNKNOWN
@@ -666,6 +675,7 @@ class HomeViewModel @Inject constructor(
                             }
                             showLog("Lock connection information:")
                             showLog("$lockConnectionInfo")
+                            initLock()
                         }
                     }
                     EventState.LOADING -> {}
@@ -689,6 +699,69 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private fun initLock(){
+        val functionName = ::initLock.name
+        viewModelScope.launch {
+            runWithLoading(functionName){
+                val isAdminCodeExists = adminCodeUseCase.isAdminCodeExists()
+                showLog("isAdminCodeExists: $isAdminCodeExists")
+                if(!isAdminCodeExists) {
+                    val result = adminCodeUseCase.createAdminCode(adminCode)
+                    showLog("createAdminCode $adminCode: $result")
+                    val containsTask = uiState.value.taskList.any { it.first == BleDeviceFeature.TaskCode.DetermineLockDirection }
+                    if(containsTask) {
+                        when (val deviceStatus = lockDirectionUseCase()) {
+                            is DeviceStatus.D6 -> {
+                                _currentDeviceStatus = DeviceStatus.D6(
+                                    deviceStatus.config,
+                                    deviceStatus.lockState,
+                                    deviceStatus.battery,
+                                    deviceStatus.batteryState,
+                                    deviceStatus.timestamp
+                                )
+                                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
+                            }
+                            is DeviceStatus.A2 -> {
+                                _currentDeviceStatus = DeviceStatus.A2(
+                                    deviceStatus.direction,
+                                    deviceStatus.vacationMode,
+                                    deviceStatus.deadBolt,
+                                    deviceStatus.doorState,
+                                    deviceStatus.lockState,
+                                    deviceStatus.securityBolt,
+                                    deviceStatus.battery,
+                                    deviceStatus.batteryState
+                                )
+                                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
+                            }
+                            is DeviceStatus.EightTwo -> {
+                                _currentDeviceStatus = DeviceStatus.EightTwo(
+                                    deviceStatus.mainVersion,
+                                    deviceStatus.subVersion,
+                                    deviceStatus.direction,
+                                    deviceStatus.vacationMode,
+                                    deviceStatus.deadBolt,
+                                    deviceStatus.doorState,
+                                    deviceStatus.lockState,
+                                    deviceStatus.securityBolt,
+                                    deviceStatus.battery,
+                                    deviceStatus.batteryState
+                                )
+                                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
+                            }
+                            else -> {
+                                showLog("$functionName not support.")
+                            }
+                        }
+                        showLog("$functionName: success")
+                    } else {
+                        showLog("$functionName: success")
+                    }
+                }
+            }
+        }
+    }
+
     private fun getLockTime() {
         val functionName = ::getLockTime.name
         flow { emit(lockTimeUseCase.getTime()) }
@@ -702,9 +775,9 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun setLockTime() {
+    private fun setLockTime(time: Long = Instant.now().atZone(ZoneId.systemDefault()).toEpochSecond()) {
         val functionName = ::setLockTime.name
-        flow { emit(lockTimeUseCase.setTime(Instant.now().atZone(ZoneId.systemDefault()).toEpochSecond())) }
+        flow { emit(lockTimeUseCase.setTime(time)) }
             .catch { e -> showLog("$functionName exception $e") }
             .map { result ->
                 showLog("$functionName result: $result")
@@ -743,14 +816,14 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun setLockTimeZone() {
+    private fun setLockTimeZone(timeZone: String = ZoneId.systemDefault().id) {
         val functionName = ::setLockTimeZone.name
         when(model) {
             "KDW01" -> {
-                flow { emit(lockTimeUseCase.setWiFiTimeZone(ZoneId.systemDefault().id)) }
+                flow { emit(lockTimeUseCase.setWiFiTimeZone(timeZone)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
-                        showLog("$functionName to ${ZoneId.systemDefault().id} result: $result")
+                        showLog("$functionName to $timeZone result: $result")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -758,10 +831,10 @@ class HomeViewModel @Inject constructor(
                     .launchIn(viewModelScope)
             }
             else -> {
-                flow { emit(lockTimeUseCase.setTimeZone(ZoneId.systemDefault().id)) }
+                flow { emit(lockTimeUseCase.setTimeZone(timeZone)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
-                        showLog("$functionName to ${ZoneId.systemDefault().id} result: $result")
+                        showLog("$functionName to $timeZone result: $result")
                     }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
                     .onCompletion { _uiState.update { it.copy(isLoading = false) } }
@@ -1367,7 +1440,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun toggleAutoLock(autoLockTime: Int) {
+    private fun toggleAutoLock(autoLockTime: Int = 10) {
         val functionName = ::toggleAutoLock.name
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
@@ -1577,10 +1650,10 @@ class HomeViewModel @Inject constructor(
                             }
                             if(phoneticLanguage != nextPhoneticLanguage){
                                 val result = lockConfig80UseCase.setPhoneticLanguage(nextPhoneticLanguage)
-                                val languageName = BleV3Lock.PhoneticLanguage.values().firstOrNull { it.value == nextPhoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
+                                val languageName = BleV3Lock.PhoneticLanguage.entries.firstOrNull { it.value == nextPhoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
                                 showLog("$functionName to $languageName result: $result")
                             } else {
-                                val languageName = BleV3Lock.PhoneticLanguage.values().firstOrNull { it.value == phoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
+                                val languageName = BleV3Lock.PhoneticLanguage.entries.firstOrNull { it.value == phoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
                                 showLog("Already set $languageName language.")
                             }
                         }
@@ -1672,7 +1745,7 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun setLockName(name: String) {
+    private fun setLockName(name: String = "New_Lock") {
         val functionName = ::setLockName.name
         flow { emit(lockNameUseCase.setName(name)) }
             .catch { e -> showLog("$functionName exception $e") }
@@ -1698,7 +1771,7 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun createAdminCode(code: String) {
+    private fun createAdminCode(code: String = adminCode) {
         val functionName = ::createAdminCode.name
         flow { emit(adminCodeUseCase.createAdminCode(code)) }
             .catch { e -> showLog("$functionName exception $e") }
@@ -1711,7 +1784,7 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun updateAdminCode(oldCode: String, newCode: String) {
+    private fun updateAdminCode(oldCode: String = adminCode, newCode: String = "1234") {
         val functionName = ::updateAdminCode.name
         flow { emit(adminCodeUseCase.updateAdminCode(oldCode, newCode)) }
             .catch { e -> showLog("$functionName exception $e") }
@@ -1885,9 +1958,9 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun factoryReset(adminCode: String) {
+    private fun factoryReset(code: String = adminCode) {
         val functionName = "factoryReset"
-        flow { emit(lockUtilityUseCase.factoryReset(adminCode)) }
+        flow { emit(lockUtilityUseCase.factoryReset(code)) }
             .catch { e -> showLog("$functionName exception $e") }
             .map { result ->
                 showLog("$functionName: $result")
@@ -1903,7 +1976,7 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun factoryReset() {
+    private fun factoryResetNoAdmin() {
         val functionName = "factoryReset"
         flow { emit(lockUtilityUseCase.factoryReset()) }
             .catch { e -> showLog("$functionName exception $e") }
@@ -2011,7 +2084,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addOneTimeToken(permission: String, name: String) {
+    private fun addOneTimeToken(permission: String = "L", name: String = "User ${lastTokenIndex + 1}") {
         val functionName = ::addOneTimeToken.name
         when(_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
@@ -2045,7 +2118,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editToken(index:Int, permission: String, name: String) {
+    private fun editToken(index:Int = lastTokenIndex, permission: String = "A", name: String = "User $lastTokenIndex ed") {
         val functionName = ::editToken.name
         when(_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
@@ -2206,12 +2279,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addAccessCode() {
+    private fun addAccessCode(code:String = "1234", index:Int = lastCodeCardIndex + 1) {
         val functionName = ::addAccessCode.name
         val isEnabled = true
-        val name = "User ${lastCodeCardIndex + 1}"
-        val code = "1234"
-        val index = lastCodeCardIndex + 1
+        val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
@@ -2289,12 +2360,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editAccessCode() {
+    private fun editAccessCode(code:String = "2345", index:Int = lastCodeIndex) {
         val functionName = ::editAccessCode.name
         val isEnabled = true
         val name = "User $lastCodeCardIndex ed"
-        val code = "2345"
-        val index = lastCodeIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
@@ -2474,11 +2543,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addAccessCard() {
+    private fun addAccessCard(index:Int = lastCodeCardIndex + 1) {
         val functionName = ::addAccessCard.name
         val isEnabled = true
-        val name = "User ${lastCodeCardIndex + 1}"
-        val index = lastCodeCardIndex + 1
+        val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
@@ -2544,11 +2612,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editAccessCard() {
+    private fun editAccessCard(index: Int = lastCardIndex) {
         val functionName = ::editAccessCard.name
         val isEnabled = true
         val name = "User $lastCodeCardIndex ed"
-        val index = lastCardIndex
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
@@ -2743,11 +2810,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addFingerprint() {
+    private fun addFingerprint(index:Int = lastFingerprintIndex + 1) {
         val functionName = ::addFingerprint.name
         val isEnabled = true
-        val name = "User ${lastFingerprintIndex + 1}"
-        val index = lastFingerprintIndex + 1
+        val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
@@ -2809,11 +2875,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editFingerprint() {
+    private fun editFingerprint(index:Int = lastFingerprintIndex) {
         val functionName = ::editFingerprint.name
         val isEnabled = true
-        val name = "User $lastFingerprintIndex ed"
-        val index = lastFingerprintIndex
+        val name = "User $index ed"
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
@@ -3004,11 +3069,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addFace() {
+    private fun addFace(index:Int = lastFaceIndex + 1) {
         val functionName = ::addFace.name
         val isEnabled = true
-        val name = "User ${lastFaceIndex + 1}"
-        val index = lastFaceIndex + 1
+        val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
@@ -3070,11 +3134,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editFace() {
+    private fun editFace(index:Int = lastFaceIndex) {
         val functionName = ::editFace.name
         val isEnabled = true
-        val name = "User $lastFaceIndex ed"
-        val index = lastFaceIndex
+        val name = "User $index ed"
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
@@ -3426,7 +3489,7 @@ class HomeViewModel @Inject constructor(
                 flow { emit(lockUserUseCase.getUserArray()) }
                     .catch { e -> showLog("$functionName array exception $e") }
                     .map { list ->
-                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
+                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
                         Timber.d("indexIterable: $indexIterable")
                         indexIterable.forEach { index ->
                             val user = lockUserUseCase.getUser(index)
@@ -3445,11 +3508,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addUser() {
+    private fun addUser(index:Int = lastUserIndex + 1) {
         val functionName = ::addUser.name
-        val name = "User ${lastUserIndex + 1}"
-        val index = lastUserIndex + 1
-        val uid = lastUserIndex + 1
+        val name = "User $index"
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
         val userType = BleV3Lock.UserType.UNRESTRICTED.value
         val credentialRule = BleV3Lock.CredentialRule.SINGLE.value
@@ -3481,7 +3542,7 @@ class HomeViewModel @Inject constructor(
                 flow { emit(lockUserUseCase.addUser(index, name, userStatus, userType, credentialRule, weekDaySchedule, yearDaySchedule)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
-                        showLog("$functionName name: $name index: $index uid: $uid userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
+                        showLog("$functionName name: $name index: $index userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
                         if(result){
                             lastUserIndex += 1
                         }
@@ -3498,11 +3559,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editUser() {
+    private fun editUser(index:Int = lastUserIndex) {
         val functionName = ::editUser.name
-        val name = "User $lastUserIndex ed"
-        val index = lastUserIndex
-        val uid = lastUserIndex
+        val name = "User $index ed"
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
         val userType = BleV3Lock.UserType.DISPOSABLE.value
         val credentialRule = BleV3Lock.CredentialRule.SINGLE.value
@@ -3535,7 +3594,7 @@ class HomeViewModel @Inject constructor(
                 flow { emit(lockUserUseCase.editUser(index, name, userStatus, userType, credentialRule, weekDaySchedule, yearDaySchedule)) }
                     .catch { e -> showLog("$functionName exception $e") }
                     .map { result ->
-                        showLog("$functionName name: $name index: $index uid: $uid userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
+                        showLog("$functionName name: $name index: $index userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
                     }
                     .catch { e -> showLog("$functionName exception $e") }
                     .onStart { _uiState.update { it.copy(isLoading = true) } }
@@ -3603,26 +3662,26 @@ class HomeViewModel @Inject constructor(
             is DeviceStatus.EightTwo -> {
                 flow { emit(lockCredentialUseCase.getCredentialArray()) }
                     .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        result.forEachIndexed { index, value ->
-                            if (value) {
-                                lastCredentialIndex = index
-                                val credential = lockCredentialUseCase.getCredentialByCredential(index)
-                                showLog("$functionName credential[$index]: $credential")
-                                if(credential.type == BleV3Lock.CredentialType.PIN.value){
-                                    lastCodeIndex = index
-                                    lastCodeCardIndex = index
-                                }
-                                if(credential.type == BleV3Lock.CredentialType.RFID.value){
-                                    lastCardIndex = index
-                                    lastCodeCardIndex = index
-                                }
-                                if(credential.type == BleV3Lock.CredentialType.FINGERPRINT.value){
-                                    lastFingerprintIndex = index
-                                }
-                                if(credential.type == BleV3Lock.CredentialType.FACE.value){
-                                    lastFaceIndex = index
-                                }
+                    .map { list ->
+                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                        Timber.d("indexIterable: $indexIterable")
+                        indexIterable.forEach { index ->
+                            lastCredentialIndex = index
+                            val credential = lockCredentialUseCase.getCredentialByCredential(index)
+                            showLog("$functionName credential[$index]: $credential")
+                            if(credential.type == BleV3Lock.CredentialType.PIN.value){
+                                lastCodeIndex = index
+                                lastCodeCardIndex = index
+                            }
+                            if(credential.type == BleV3Lock.CredentialType.RFID.value){
+                                lastCardIndex = index
+                                lastCodeCardIndex = index
+                            }
+                            if(credential.type == BleV3Lock.CredentialType.FINGERPRINT.value){
+                                lastFingerprintIndex = index
+                            }
+                            if(credential.type == BleV3Lock.CredentialType.FACE.value){
+                                lastFaceIndex = index
                             }
                         }
                     }
@@ -4225,21 +4284,18 @@ class HomeViewModel @Inject constructor(
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.SetOTACancel }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
             }
-            "KDW01" -> {
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePlugState }
-            }
-            "TNRFp00" -> {
+            "TNRFp00", "KD01", "TNRFp01", "KDFa01", "TD01", "KDM01", "KDFp01" -> {
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePlugState }
             }
-            "KD01" -> {
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
-                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
+            "KDW01", "TDW01", "TLRW01" -> {
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePlugState }
+            }
+            "PWG01" -> {
+                supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
             }
         }
         Timber.d("$functionName: $supportTaskList")
@@ -4452,6 +4508,307 @@ class HomeViewModel @Inject constructor(
         showLog("OTA將於3秒後背景執行")
     }
 
+    private suspend fun runWithLoading(
+        functionName: String,
+        block: suspend () -> Unit
+    ) {
+        try {
+            _uiState.update { it.copy(isLoading = true) }
+            block()
+        } catch (e: LockStatusException.LockFunctionNotSupportException) {
+            showLog("$functionName:此功能不支援，已忽略。\nException: $e")
+        } catch (e: Exception) {
+            showLog("$functionName exception $e")
+        } finally {
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    fun showInputDialog() {
+        var title: String? = null
+        var message: String? = null
+        var initialText = ""
+        when(uiState.value.taskCode){
+            BleDeviceFeature.TaskCode.SetLockTime -> {
+                title = "請輸入鎖體時間"
+                initialText = Instant.now().atZone(ZoneId.systemDefault()).toEpochSecond().toString()
+            }
+            BleDeviceFeature.TaskCode.SetLockName -> {
+                title = "請輸入鎖體名稱"
+                initialText = "New_Lock"
+            }
+            BleDeviceFeature.TaskCode.SetLockTimeZone -> {
+                title = "請輸入鎖體時區"
+                initialText = ZoneId.systemDefault().id
+            }
+            BleDeviceFeature.TaskCode.ToggleAutoLock -> {
+                title = "請輸入自動上鎖時間"
+                initialText = "10"
+            }
+            BleDeviceFeature.TaskCode.CreateAdminCode -> {
+                title = "請輸入管理者密碼"
+                initialText = "1234"
+            }
+            BleDeviceFeature.TaskCode.UpdateAdminCode -> {
+                title = "請輸入新的管理者密碼"
+                initialText = "1234"
+            }
+            BleDeviceFeature.TaskCode.EditToken -> {
+                title = "請輸入編輯Token的Index"
+                initialText = lastTokenIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.DeleteToken -> {
+                title = "請輸入想要移除Token的Index"
+                initialText = lastTokenIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.AddAccessCode -> {
+                title = "請輸入想要新增Code的Index"
+                initialText = lastCodeCardIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.EditAccessCode -> {
+                title = "請輸入想要編輯Code的Index"
+                initialText = lastCodeIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.DeleteAccessCode -> {
+                title = "請輸入想要移除Code的Index"
+                initialText = lastCodeIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.AddAccessCard -> {
+                title = "請輸入想要新增Card的Index"
+                initialText = lastCodeCardIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.EditAccessCard -> {
+                title = "請輸入想要編輯Card的Index"
+                initialText = lastCardIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.DeleteAccessCard -> {
+                title = "請輸入想要移除Card的Index"
+                initialText = lastCardIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.AddFingerprint -> {
+                title = "請輸入想要新增Fingerprint的Index"
+                initialText = lastFingerprintIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.EditFingerprint -> {
+                title = "請輸入想要編輯Fingerprint的Index"
+                initialText = lastFingerprintIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.DeleteFingerprint -> {
+                title = "請輸入想要移除Fingerprint的Index"
+                initialText = lastFingerprintIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.AddFace -> {
+                title = "請輸入想要新增Face的Index"
+                initialText = lastFaceIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.EditFace -> {
+                title = "請輸入想要編輯Face的Index"
+                initialText = lastFaceIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.DeleteFace -> {
+                title = "請輸入想要移除Face的Index"
+                initialText = lastFaceIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.DeleteEvent -> {
+                title = "請輸入想要移除Event的筆數"
+                initialText = lastEventLogIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.AddUser -> {
+                title = "請輸入想要新增User的Index"
+                initialText = lastUserIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.EditUser -> {
+                title = "請輸入想要編輯User的Index"
+                initialText = lastUserIndex.toString()
+            }
+            BleDeviceFeature.TaskCode.DeleteUser -> {
+                title = "請輸入想要移除User的Index"
+                initialText = lastUserIndex.toString()
+            }
+            else -> {
+
+            }
+        }
+
+        _uiState.update { it.copy(isShowInputDialog = true, inputDialogTitle = title, inputDialogMessage = message, inputDialogInitialText = initialText) }
+    }
+
+    fun closeInputDialog() {
+        _uiState.update { it.copy(isShowInputDialog = false) }
+    }
+
+    fun setInputDialogContent(content: String): Boolean {
+        val intContent = content.toIntOrNull()
+        val longContent = content.toLongOrNull()
+        if(content.isNotBlank()) {
+            showLog("輸入內容: $content")
+        }
+        when(uiState.value.taskCode){
+            BleDeviceFeature.TaskCode.SetLockTime -> {
+                if(longContent != null) {
+                    setLockTime(longContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.SetLockName -> {
+                setLockName(content)
+            }
+            BleDeviceFeature.TaskCode.SetLockTimeZone -> {
+                setLockTimeZone(content)
+            }
+            BleDeviceFeature.TaskCode.ToggleAutoLock -> {
+                if(intContent != null) {
+                    toggleAutoLock(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.CreateAdminCode -> {
+                createAdminCode(content)
+            }
+            BleDeviceFeature.TaskCode.UpdateAdminCode -> {
+                updateAdminCode(adminCode, content)
+            }
+            // Edit Token
+            BleDeviceFeature.TaskCode.EditToken -> {
+                if(intContent != null) {
+                    editToken(intContent, "A", "User $intContent ed")
+                }
+            }
+            BleDeviceFeature.TaskCode.DeleteToken -> {
+                if(intContent != null) {
+                    deleteToken(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.DeleteAccessCode -> {
+                if(intContent != null) {
+                    deleteAccessCode(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.AddAccessCard -> {
+                if(intContent != null) {
+                    addAccessCard(index = intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.EditAccessCard -> {
+                if(intContent != null) {
+                    editAccessCard(index = intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.DeleteAccessCard -> {
+                if(intContent != null) {
+                    deleteAccessCard(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.AddFingerprint -> {
+                if(intContent != null) {
+                    addFingerprint(index = intContent)
+                }
+            }
+            // Edit Fingerprint
+            BleDeviceFeature.TaskCode.EditFingerprint -> {
+                if(intContent != null) {
+                    editFingerprint(index = intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.DeleteFingerprint -> {
+                if(intContent != null) {
+                    deleteFingerprint(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.AddFace -> {
+                if(intContent != null) {
+                    addFace(index = intContent)
+                }
+            }
+            // Edit Fingerprint
+            BleDeviceFeature.TaskCode.EditFace -> {
+                if(intContent != null) {
+                    editFace(index = intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.DeleteFace -> {
+                if(intContent != null) {
+                    deleteFace(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.DeleteEvent -> {
+                if(intContent != null) {
+                    deleteEvent(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.AddUser -> {
+                if(intContent != null) {
+                    addUser(intContent)
+                }
+            }
+            // Edit User
+            BleDeviceFeature.TaskCode.EditUser -> {
+                if(intContent != null) {
+                    editUser(intContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.DeleteUser -> {
+                if(intContent != null) {
+                    deleteUser(intContent)
+                }
+            }
+            else -> {
+
+            }
+        }
+
+        return content.isNotBlank()
+    }
+
+    fun showAccessCodeInputDialog() {
+        var title: String? = null
+        var message: String? = null
+        var initialIndex = ""
+        var initialCode = ""
+        when(uiState.value.taskCode){
+            BleDeviceFeature.TaskCode.AddAccessCode -> {
+                title = "請輸入想要新增Code的Index"
+                initialIndex = lastCodeCardIndex.toString()
+                initialCode = "1234"
+            }
+
+            BleDeviceFeature.TaskCode.EditAccessCode -> {
+                title = "請輸入想要修改Code的Index"
+                initialIndex = lastCodeCardIndex.toString()
+                initialCode = ""
+            }
+            else -> {
+
+            }
+        }
+
+        _uiState.update { it.copy(isShowInputAccessCodeDialog = true, inputDialogTitle = title, inputDialogMessage = message, inputDialogInitialIndex = initialIndex, inputDialogAccessCode = initialCode) }
+    }
+
+    fun closeAccessCodeInputDialog() {
+        _uiState.update { it.copy(isShowInputAccessCodeDialog = false) }
+    }
+
+    fun setInputAccessCodeData(content: InputAccessCodeData){
+        val indexContent = content.index.toIntOrNull()
+        val codeContent = content.code
+        if(indexContent != null && codeContent.isNotBlank()) {
+            showLog("輸入內容: $content")
+        }
+        when(uiState.value.taskCode){
+            BleDeviceFeature.TaskCode.AddAccessCode -> {
+                if(indexContent != null) {
+                    addAccessCode(code = codeContent, index = indexContent)
+                }
+            }
+            BleDeviceFeature.TaskCode.EditAccessCode -> {
+                if(indexContent != null) {
+                    editAccessCode(code = codeContent, index = indexContent)
+                }
+            }
+            else -> {
+
+            }
+        }
+    }
 }
 
 data class UiState(
@@ -4463,7 +4820,15 @@ data class UiState(
     val btnEnabled: Boolean = false,
     val shouldShowTaskList: Boolean = false,
     val message: String = "",
-    val taskList: Array<Triple<BleDeviceFeature.TaskCode, String, Set<String>>> = BleDeviceFeature.initTaskList
+    val taskList: Array<Triple<BleDeviceFeature.TaskCode, String, Set<String>>> = BleDeviceFeature.initTaskList,
+    val isShowInputDialog: Boolean = false,
+    val isShowInputAccessCodeDialog: Boolean = false,
+    val inputDialogTitle: String? = null,
+    val inputDialogMessage: String? = null,
+    val inputDialogInitialText: String = "",
+    val inputDialogInitialIndex: String = "",
+    val inputDialogAccessCode: String = "",
+    val inputDialogContent: String = "",
 )
 
 sealed class UiEvent {

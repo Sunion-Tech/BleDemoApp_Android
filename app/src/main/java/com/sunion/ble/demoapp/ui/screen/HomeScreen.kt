@@ -18,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -31,6 +30,8 @@ import com.sunion.ble.demoapp.*
 import com.sunion.ble.demoapp.R
 import com.sunion.ble.demoapp.ui.component.EnableBluetoothDialog
 import com.sunion.ble.demoapp.ui.component.IKeyDivider
+import com.sunion.ble.demoapp.ui.component.InputAccessCodeDialog
+import com.sunion.ble.demoapp.ui.component.InputDialog
 import com.sunion.ble.demoapp.ui.component.LoadingScreen
 import com.sunion.ble.demoapp.ui.theme.AppTheme
 import com.sunion.core.ble.entity.BleDeviceFeature
@@ -42,7 +43,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
-    val context = LocalContext.current
     val uiState = viewModel.uiState.collectAsState().value
     val logList = viewModel.logList.collectAsState().value
 
@@ -122,6 +122,36 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
             },
             onDismissButtonClick = viewModel::closeBluetoothEnableDialog,
         )
+
+    if(uiState.isShowInputDialog) {
+        InputDialog(
+            isShown = true,
+            title = uiState.inputDialogTitle,
+            message = uiState.inputDialogMessage,
+            initialText = uiState.inputDialogInitialText,
+            onConfirm = { text ->
+                viewModel.setInputDialogContent(text)
+                viewModel.closeInputDialog()
+            },
+            onCancel = { viewModel.closeInputDialog() }
+        )
+    }
+
+    if(uiState.isShowInputAccessCodeDialog) {
+        InputAccessCodeDialog(
+            isShown = true,
+            title = uiState.inputDialogTitle,
+            message = uiState.inputDialogMessage,
+            initialIndex = uiState.inputDialogInitialIndex,
+            initialCode = uiState.inputDialogAccessCode,
+            onConfirm = { inputAccessCodeData ->
+                viewModel.setInputAccessCodeData(inputAccessCodeData)
+                viewModel.closeAccessCodeInputDialog()
+            },
+            onCancel = { viewModel.closeAccessCodeInputDialog() }
+        )
+    }
+
 }
 
 @Composable
@@ -135,7 +165,7 @@ fun HomeScreen(
     onChooseFileClicked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var dropDownWidth by remember { mutableStateOf(0) }
+    var dropDownWidth by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = Modifier
@@ -181,7 +211,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        painter = painterResource(id = com.sunion.ble.demoapp.R.drawable.ic_scan_qrcode),
+                        painter = painterResource(id = R.drawable.ic_scan_qrcode),
                         contentDescription = "scan",
                         modifier = Modifier.size(24.dp),
                         tint = AppTheme.colors.primary,
@@ -201,7 +231,7 @@ fun HomeScreen(
                 Text(text = it, style = AppTheme.typography.body)
             }
             CoroutineScope(Dispatchers.Main).launch {
-                if (logList.size>0) {
+                if (logList.isNotEmpty()) {
                     listState.scrollToItem(logList.size - 1)
                 }
             }
