@@ -20,6 +20,7 @@ import com.sunion.core.ble.accessByteArrayToString
 import com.sunion.core.ble.entity.*
 import com.sunion.core.ble.exception.ConnectionTokenException
 import com.sunion.core.ble.exception.LockStatusException
+import com.sunion.core.ble.exception.NotConnectedException
 import com.sunion.core.ble.isDeviceUuid
 import com.sunion.core.ble.isNotSupport
 import com.sunion.core.ble.isNotSupport2Byte
@@ -30,7 +31,6 @@ import com.sunion.core.ble.toSupportPhoneticLanguageList
 import com.sunion.core.ble.unless
 import com.sunion.core.ble.usecase.*
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.reactivex.disposables.Disposable
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import timber.log.Timber
@@ -38,6 +38,7 @@ import java.io.InputStream
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.ZoneId
+import java.util.Random
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import javax.inject.Inject
@@ -137,7 +138,6 @@ class HomeViewModel @Inject constructor(
     private var isCheckDeviceStatus = false
     private var isCheckLockConfig = false
     private var isCheckUnLockType = false
-    private var disposable: Disposable? = null
     private val identity: String = ""
     private var model: String = ""
     private var isBackgroundOTA = false
@@ -188,396 +188,411 @@ class HomeViewModel @Inject constructor(
 
     fun executeTask() {
         if (!checkIsBluetoothEnable()) return
-        _uiState.update { it.copy(btnEnabled = false) }
-        when (uiState.value.taskCode) {
-            // Connect
-            BleDeviceFeature.TaskCode.Connect -> {
-                if(currentQrCodeContent != null && currentQrCodeContent!!.isDeviceUuid() && currentConnectMacAddress == null){
-                    startBleScan(currentQrCodeContent!!, currentProductionGetResponse!!, true)
-                } else {
-                    connect()
+        val functionName = "executeTask"
+        viewModelScope.launch {
+            _uiState.update { it.copy(btnEnabled = false) }
+            runWithLoading(functionName) {
+                when (uiState.value.taskCode) {
+                    BleDeviceFeature.TaskCode.Connect -> {
+                        if (currentQrCodeContent != null && currentQrCodeContent!!.isDeviceUuid() && currentConnectMacAddress == null) {
+                            startBleScan(
+                                currentQrCodeContent!!,
+                                currentProductionGetResponse!!,
+                                true
+                            )
+                        } else {
+                            connect()
+                        }
+                    }
+                    BleDeviceFeature.TaskCode.AutoTest -> {
+                        executeAutoTest()
+                    }
+                    // Get lock time
+                    BleDeviceFeature.TaskCode.GetLockTime -> {
+                        getLockTime()
+                    }
+                    // Set lock time
+                    BleDeviceFeature.TaskCode.SetLockTime -> {
+                        showInputDialog()
+                    }
+                    // Get lock time zone
+                    BleDeviceFeature.TaskCode.GetLockTimeZone -> {
+                        getLockTimeZone()
+                    }
+                    // Set lock timezone
+                    BleDeviceFeature.TaskCode.SetLockTimeZone -> {
+                        showInputDialog()
+                    }
+                    // Get lock name
+                    BleDeviceFeature.TaskCode.GetLockName -> {
+                        getLockName()
+                    }
+                    // Set lock name
+                    BleDeviceFeature.TaskCode.SetLockName -> {
+                        showInputDialog()
+                    }
+                    // Get DeviceStatus
+                    BleDeviceFeature.TaskCode.GetDeviceStatus -> {
+                        getDeviceStatus()
+                    }
+                    // Get lock config
+                    BleDeviceFeature.TaskCode.GetLockConfig -> {
+                        getLockConfig()
+                    }
+                    // Toggle lock state
+                    BleDeviceFeature.TaskCode.ToggleLockState -> {
+                        toggleLockState()
+                    }
+                    // Auto unlock toggle lock state
+                    BleDeviceFeature.TaskCode.AutoUnlockToggleLockState -> {
+                        autoUnlockToggleLockState()
+                    }
+                    // Toggle security bolt
+                    BleDeviceFeature.TaskCode.ToggleSecurityBolt -> {
+                        toggleSecurityBolt()
+                    }
+                    // Toggle key press beep
+                    BleDeviceFeature.TaskCode.ToggleKeyPressBeep -> {
+                        toggleKeyPressBeep()
+                    }
+                    // Toggle vacation mode
+                    BleDeviceFeature.TaskCode.ToggleVacationMode -> {
+                        toggleVacationMode()
+                    }
+                    // Toggle guiding code
+                    BleDeviceFeature.TaskCode.ToggleGuidingCode -> {
+                        toggleGuidingCode()
+                    }
+                    // Toggle auto lock
+                    BleDeviceFeature.TaskCode.ToggleAutoLock -> {
+                        showInputDialog()
+                    }
+                    // Set lock location
+                    BleDeviceFeature.TaskCode.SetLockLocation -> {
+                        setLockLocation()
+                    }
+                    // Toggle virtual code
+                    BleDeviceFeature.TaskCode.ToggleVirtualCode -> {
+                        toggleVirtualCode()
+                    }
+                    // Toggle twoFA
+                    BleDeviceFeature.TaskCode.ToggleTwoFA -> {
+                        toggleTwoFA()
+                    }
+                    // Toggle operating sound
+                    BleDeviceFeature.TaskCode.ToggleOperatingSound -> {
+                        toggleOperatingSound()
+                    }
+                    // Toggle show fast track mode
+                    BleDeviceFeature.TaskCode.ToggleShowFastTrackMode -> {
+                        toggleShowFastTrackMode()
+                    }
+                    // Toggle sabbath mode
+                    BleDeviceFeature.TaskCode.ToggleSabbathMode -> {
+                        toggleSabbathMode()
+                    }
+                    // Toggle phonetic language
+                    BleDeviceFeature.TaskCode.TogglePhoneticLanguage -> {
+                        togglePhoneticLanguage()
+                    }
+                    // Determine lock direction
+                    BleDeviceFeature.TaskCode.DetermineLockDirection -> {
+                        determineLockDirection()
+                    }
+                    // Is admin code exists
+                    BleDeviceFeature.TaskCode.IsAdminCodeExists -> {
+                        isAdminCodeExists()
+                    }
+                    // Create admin code
+                    BleDeviceFeature.TaskCode.CreateAdminCode -> {
+                        showInputDialog()
+                    }
+                    // Update admin code
+                    BleDeviceFeature.TaskCode.UpdateAdminCode -> {
+                        showInputDialog()
+                    }
+                    // Get admin code position
+                    BleDeviceFeature.TaskCode.GetAdminCodePosition -> {
+                        getAdminCodePosition()
+                    }
+                    // Plug on
+                    BleDeviceFeature.TaskCode.TogglePlugState -> {
+                        togglePlugState()
+                    }
+                    // Get firmware version
+                    BleDeviceFeature.TaskCode.GetFwVersion -> {
+                        getFirmwareVersion()
+                    }
+                    // Get RF version
+                    BleDeviceFeature.TaskCode.GetRfVersion -> {
+                        getRfVersion()
+                    }
+                    // Get MCU version
+                    BleDeviceFeature.TaskCode.GetMcuVersion -> {
+                        getMcuVersion()
+                    }
+                    // Factory reset
+                    BleDeviceFeature.TaskCode.FactoryReset -> {
+                        factoryReset()
+                    }
+                    // Factory reset
+                    BleDeviceFeature.TaskCode.FactoryResetNoAdmin -> {
+                        factoryResetNoAdmin()
+                    }
+                    // Restart
+                    BleDeviceFeature.TaskCode.Restart -> {
+                        restart()
+                    }
+                    // Get TokenArray
+                    BleDeviceFeature.TaskCode.GetTokenArray -> {
+                        getTokenArray()
+                    }
+                    // Get Token
+                    BleDeviceFeature.TaskCode.GetToken -> {
+                        getToken()
+                    }
+                    // Add OneTime Token
+                    BleDeviceFeature.TaskCode.AddOneTimeToken -> {
+                        addOneTimeToken()
+                    }
+                    // Edit Token
+                    BleDeviceFeature.TaskCode.EditToken -> {
+                        showInputDialog()
+                    }
+                    // Delete Token
+                    BleDeviceFeature.TaskCode.DeleteToken -> {
+                        showInputDialog()
+                    }
+                    // Get Access Code Array
+                    BleDeviceFeature.TaskCode.GetAccessCodeArray -> {
+                        getAccessCodeArray()
+                    }
+                    // Get Access Code
+                    BleDeviceFeature.TaskCode.GetAccessCode -> {
+                        getAccessCode()
+                    }
+                    // Add Access Code
+                    BleDeviceFeature.TaskCode.AddAccessCode -> {
+                        showAccessCodeInputDialog()
+                    }
+                    // Edit Access Code
+                    BleDeviceFeature.TaskCode.EditAccessCode -> {
+                        showAccessCodeInputDialog()
+                    }
+                    // Delete Access Code
+                    BleDeviceFeature.TaskCode.DeleteAccessCode -> {
+                        showInputDialog()
+                    }
+                    // Get Access Card Array
+                    BleDeviceFeature.TaskCode.GetAccessCardArray -> {
+                        getAccessCardArray()
+                    }
+                    // Get Access Card
+                    BleDeviceFeature.TaskCode.GetAccessCard -> {
+                        getAccessCard()
+                    }
+                    // Add Access Card
+                    BleDeviceFeature.TaskCode.AddAccessCard -> {
+                        showInputDialog()
+                    }
+                    // Edit Access Card
+                    BleDeviceFeature.TaskCode.EditAccessCard -> {
+                        showInputDialog()
+                    }
+                    // Delete Access Card
+                    BleDeviceFeature.TaskCode.DeleteAccessCard -> {
+                        showInputDialog()
+                    }
+                    // Device Get Access Card
+                    BleDeviceFeature.TaskCode.DeviceGetAccessCard -> {
+                        deviceGetAccessCard()
+                    }
+                    // Get Fingerprint Array
+                    BleDeviceFeature.TaskCode.GetFingerprintArray -> {
+                        getFingerprintArray()
+                    }
+                    // Get Fingerprint
+                    BleDeviceFeature.TaskCode.GetFingerprint -> {
+                        getFingerprint()
+                    }
+                    // Add Fingerprint
+                    BleDeviceFeature.TaskCode.AddFingerprint -> {
+                        showInputDialog()
+                    }
+                    // Edit Fingerprint
+                    BleDeviceFeature.TaskCode.EditFingerprint -> {
+                        showInputDialog()
+                    }
+                    // Delete Fingerprint
+                    BleDeviceFeature.TaskCode.DeleteFingerprint -> {
+                        showInputDialog()
+                    }
+                    // Device Get Fingerprint
+                    BleDeviceFeature.TaskCode.DeviceGetFingerprint -> {
+                        deviceGetFingerprint()
+                    }
+                    // Get FaceArray
+                    BleDeviceFeature.TaskCode.GetFaceArray -> {
+                        getFaceArray()
+                    }
+                    // Get Face
+                    BleDeviceFeature.TaskCode.GetFace -> {
+                        getFace()
+                    }
+                    // Add Face
+                    BleDeviceFeature.TaskCode.AddFace -> {
+                        showInputDialog()
+                    }
+                    // Edit Face
+                    BleDeviceFeature.TaskCode.EditFace -> {
+                        showInputDialog()
+                    }
+                    // Delete Face
+                    BleDeviceFeature.TaskCode.DeleteFace -> {
+                        showInputDialog()
+                    }
+                    // Device Get Face
+                    BleDeviceFeature.TaskCode.DeviceGetFace -> {
+                        deviceGetFace()
+                    }
+                    // Get Event Quantity
+                    BleDeviceFeature.TaskCode.GetEventQuantity -> {
+                        getEventQuantity()
+                    }
+                    // Get Event
+                    BleDeviceFeature.TaskCode.GetEvent -> {
+                        getEvent()
+                    }
+                    // Delete Event
+                    BleDeviceFeature.TaskCode.DeleteEvent -> {
+                        showInputDialog()
+                    }
+                    // Get Lock Supported Unlock Types
+                    BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes -> {
+                        getLockSupportedUnlockTypes()
+                    }
+                    // Get User Ability
+                    BleDeviceFeature.TaskCode.GetUserAbility -> {
+                        getUserAbility()
+                    }
+                    // Get User Count
+                    BleDeviceFeature.TaskCode.GetUserCount -> {
+                        getUserCount()
+                    }
+                    // Is Matter Device
+                    BleDeviceFeature.TaskCode.IsMatterDevice -> {
+                        isMatterDevice()
+                    }
+                    // Get User Array
+                    BleDeviceFeature.TaskCode.GetUserArray -> {
+                        getUserArray()
+                    }
+                    // Get User
+                    BleDeviceFeature.TaskCode.GetUser -> {
+                        getUser()
+                    }
+                    // Add User
+                    BleDeviceFeature.TaskCode.AddUser -> {
+                        showInputDialog()
+                    }
+                    // Edit User
+                    BleDeviceFeature.TaskCode.EditUser -> {
+                        showInputDialog()
+                    }
+                    // Delete User
+                    BleDeviceFeature.TaskCode.DeleteUser -> {
+                        showInputDialog()
+                    }
+                    // Get Credential Array
+                    BleDeviceFeature.TaskCode.GetCredentialArray -> {
+                        getCredentialArray()
+                    }
+                    // Get Credential
+                    BleDeviceFeature.TaskCode.GetCredential -> {
+                        getCredential()
+                    }
+                    // Get Credential By Credential
+                    BleDeviceFeature.TaskCode.GetCredentialByCredential -> {
+                        getCredentialByCredential()
+                    }
+                    // Get Credential By User
+                    BleDeviceFeature.TaskCode.GetCredentialByUser -> {
+                        getCredentialByUser()
+                    }
+                    // Get Credential Hash
+                    BleDeviceFeature.TaskCode.GetUserCredentialHash -> {
+                        getUserCredentialHash()
+                    }
+                    // Get User Hash
+                    BleDeviceFeature.TaskCode.GetBleUserHash -> {
+                        getBleUserHash()
+                    }
+                    // Set All Data Synced
+                    BleDeviceFeature.TaskCode.SetAllDataSynced -> {
+                        setAllDataSynced()
+                    }
+                    // Scan Wifi
+                    BleDeviceFeature.TaskCode.ScanWifi -> {
+                        when (_currentDeviceStatus) {
+                            is DeviceStatus.EightTwo -> {
+                                collectWifiList3()
+                                scanWifi3()
+                            }
+
+                            is DeviceStatus.B0 -> {
+                                collectWifiList3()
+                                scanWifi3()
+                            }
+
+                            else -> {
+                                collectWifiList()
+                                scanWifi()
+                            }
+                        }
+                    }
+                    // Connect To Wifi
+                    BleDeviceFeature.TaskCode.ConnectToWifi -> {
+                        when (_currentDeviceStatus) {
+                            is DeviceStatus.EightTwo -> {
+                                connectToWifi3("Sunion-SW", "S-device_W")
+                            }
+
+                            is DeviceStatus.B0 -> {
+                                connectToWifi3("Sunion-SW", "S-device_W")
+                            }
+
+                            else -> {
+                                connectToWifi("Sunion-SW", "S-device_W")
+                            }
+                        }
+                    }
+                    // Set OTA Status
+                    BleDeviceFeature.TaskCode.SetOTAUpdate -> {
+                        if (!isBackgroundOTA) {
+                            // Foreground OTA Update
+                            otaUpdate(currentTarget, signatureV005)
+                        } else {
+                            // Background OTA Update
+                            backGroundOTAUpdate()
+                        }
+                    }
+                    // Set OTA Cancel
+                    BleDeviceFeature.TaskCode.SetOTACancel -> {
+                        setOTACancel(currentTarget)
+                    }
+                    // Disconnect
+                    BleDeviceFeature.TaskCode.Disconnect -> {
+                        disconnect()
+                    }
+
+                    else -> {}
                 }
             }
-            // Get lock time
-            BleDeviceFeature.TaskCode.GetLockTime -> {
-                getLockTime()
-            }
-            // Set lock time
-            BleDeviceFeature.TaskCode.SetLockTime -> {
-                showInputDialog()
-            }
-            // Get lock time zone
-            BleDeviceFeature.TaskCode.GetLockTimeZone -> {
-                getLockTimeZone()
-            }
-            // Set lock timezone
-            BleDeviceFeature.TaskCode.SetLockTimeZone -> {
-                showInputDialog()
-            }
-            // Get lock name
-            BleDeviceFeature.TaskCode.GetLockName -> {
-                getLockName()
-            }
-            // Set lock name
-            BleDeviceFeature.TaskCode.SetLockName -> {
-                showInputDialog()
-            }
-            // Get DeviceStatus
-            BleDeviceFeature.TaskCode.GetDeviceStatus -> {
-                getDeviceStatus()
-            }
-            // Get lock config
-            BleDeviceFeature.TaskCode.GetLockConfig -> {
-                getLockConfig()
-            }
-            // Toggle lock state
-            BleDeviceFeature.TaskCode.ToggleLockState -> {
-                toggleLockState()
-            }
-            // Auto unlock toggle lock state
-            BleDeviceFeature.TaskCode.AutoUnlockToggleLockState -> {
-                autoUnlockToggleLockState()
-            }
-            // Toggle security bolt
-            BleDeviceFeature.TaskCode.ToggleSecurityBolt -> {
-                toggleSecurityBolt()
-            }
-            // Toggle key press beep
-            BleDeviceFeature.TaskCode.ToggleKeyPressBeep -> {
-                toggleKeyPressBeep()
-            }
-            // Toggle vacation mode
-            BleDeviceFeature.TaskCode.ToggleVacationMode -> {
-                toggleVacationMode()
-            }
-            // Toggle guiding code
-            BleDeviceFeature.TaskCode.ToggleGuidingCode -> {
-                toggleGuidingCode()
-            }
-            // Toggle auto lock
-            BleDeviceFeature.TaskCode.ToggleAutoLock -> {
-                showInputDialog()
-            }
-            // Set lock location
-            BleDeviceFeature.TaskCode.SetLockLocation -> {
-                setLockLocation(25.03369, 121.564128)
-            }
-            // Toggle virtual code
-            BleDeviceFeature.TaskCode.ToggleVirtualCode -> {
-                toggleVirtualCode()
-            }
-            // Toggle twoFA
-            BleDeviceFeature.TaskCode.ToggleTwoFA -> {
-                toggleTwoFA()
-            }
-            // Toggle operating sound
-            BleDeviceFeature.TaskCode.ToggleOperatingSound -> {
-                toggleOperatingSound()
-            }
-            // Toggle show fast track mode
-            BleDeviceFeature.TaskCode.ToggleShowFastTrackMode -> {
-                toggleShowFastTrackMode()
-            }
-            // Toggle sabbath mode
-            BleDeviceFeature.TaskCode.ToggleSabbathMode -> {
-                toggleSabbathMode()
-            }
-            // Toggle phonetic language
-            BleDeviceFeature.TaskCode.TogglePhoneticLanguage -> {
-                togglePhoneticLanguage()
-            }
-            // Determine lock direction
-            BleDeviceFeature.TaskCode.DetermineLockDirection -> {
-                determineLockDirection()
-            }
-            // Is admin code exists
-            BleDeviceFeature.TaskCode.IsAdminCodeExists -> {
-                isAdminCodeExists()
-            }
-            // Create admin code
-            BleDeviceFeature.TaskCode.CreateAdminCode -> {
-                showInputDialog()
-            }
-            // Update admin code
-            BleDeviceFeature.TaskCode.UpdateAdminCode -> {
-                showInputDialog()
-            }
-            // Get admin code position
-            BleDeviceFeature.TaskCode.GetAdminCodePosition -> {
-                getAdminCodePosition()
-            }
-            // Plug on
-            BleDeviceFeature.TaskCode.TogglePlugState -> {
-                togglePlugState()
-            }
-            // Get firmware version
-            BleDeviceFeature.TaskCode.GetFwVersion -> {
-                getFirmwareVersion()
-            }
-            // Get RF version
-            BleDeviceFeature.TaskCode.GetRfVersion -> {
-                getRfVersion()
-            }
-            // Get MCU version
-            BleDeviceFeature.TaskCode.GetMcuVersion -> {
-                getMcuVersion()
-            }
-            // Factory reset
-            BleDeviceFeature.TaskCode.FactoryReset -> {
-                factoryReset()
-            }
-            // Factory reset
-            BleDeviceFeature.TaskCode.FactoryResetNoAdmin -> {
-                factoryResetNoAdmin()
-            }
-            // Restart
-            BleDeviceFeature.TaskCode.Restart -> {
-                restart()
-            }
-            // Get TokenArray
-            BleDeviceFeature.TaskCode.GetTokenArray -> {
-                getTokenArray()
-            }
-            // Get Token
-            BleDeviceFeature.TaskCode.GetToken -> {
-                getToken()
-            }
-            // Add OneTime Token
-            BleDeviceFeature.TaskCode.AddOneTimeToken -> {
-                addOneTimeToken("L","User ${lastTokenIndex + 1}")
-            }
-            // Edit Token
-            BleDeviceFeature.TaskCode.EditToken -> {
-                showInputDialog()
-//                editToken(lastTokenIndex,"A","User $lastTokenIndex ed")
-            }
-            // Delete Token
-            BleDeviceFeature.TaskCode.DeleteToken -> {
-                showInputDialog()
-            }
-            // Get Access Code Array
-            BleDeviceFeature.TaskCode.GetAccessCodeArray -> {
-                getAccessCodeArray()
-            }
-            // Get Access Code
-            BleDeviceFeature.TaskCode.GetAccessCode -> {
-                getAccessCode()
-            }
-            // Add Access Code
-            BleDeviceFeature.TaskCode.AddAccessCode -> {
-                showAccessCodeInputDialog()
-            }
-            // Edit Access Code
-            BleDeviceFeature.TaskCode.EditAccessCode -> {
-                showAccessCodeInputDialog()
-            }
-            // Delete Access Code
-            BleDeviceFeature.TaskCode.DeleteAccessCode -> {
-                showInputDialog()
-            }
-            // Get Access Card Array
-            BleDeviceFeature.TaskCode.GetAccessCardArray -> {
-                getAccessCardArray()
-            }
-            // Get Access Card
-            BleDeviceFeature.TaskCode.GetAccessCard -> {
-                getAccessCard()
-            }
-            // Add Access Card
-            BleDeviceFeature.TaskCode.AddAccessCard -> {
-                showInputDialog()
-            }
-            // Edit Access Card
-            BleDeviceFeature.TaskCode.EditAccessCard -> {
-                showInputDialog()
-            }
-            // Delete Access Card
-            BleDeviceFeature.TaskCode.DeleteAccessCard -> {
-                showInputDialog()
-            }
-            // Device Get Access Card
-            BleDeviceFeature.TaskCode.DeviceGetAccessCard -> {
-                deviceGetAccessCard()
-            }
-            // Get Fingerprint Array
-            BleDeviceFeature.TaskCode.GetFingerprintArray -> {
-                getFingerprintArray()
-            }
-            // Get Fingerprint
-            BleDeviceFeature.TaskCode.GetFingerprint -> {
-                getFingerprint()
-            }
-            // Add Fingerprint
-            BleDeviceFeature.TaskCode.AddFingerprint -> {
-                showInputDialog()
-            }
-            // Edit Fingerprint
-            BleDeviceFeature.TaskCode.EditFingerprint -> {
-                showInputDialog()
-            }
-            // Delete Fingerprint
-            BleDeviceFeature.TaskCode.DeleteFingerprint -> {
-                showInputDialog()
-            }
-            // Device Get Fingerprint
-            BleDeviceFeature.TaskCode.DeviceGetFingerprint -> {
-                deviceGetFingerprint()
-            }
-            // Get FaceArray
-            BleDeviceFeature.TaskCode.GetFaceArray -> {
-                getFaceArray()
-            }
-            // Get Face
-            BleDeviceFeature.TaskCode.GetFace -> {
-                getFace()
-            }
-            // Add Face
-            BleDeviceFeature.TaskCode.AddFace -> {
-                showInputDialog()
-            }
-            // Edit Face
-            BleDeviceFeature.TaskCode.EditFace -> {
-                showInputDialog()
-            }
-            // Delete Face
-            BleDeviceFeature.TaskCode.DeleteFace -> {
-                showInputDialog()
-            }
-            // Device Get Face
-            BleDeviceFeature.TaskCode.DeviceGetFace -> {
-                deviceGetFace()
-            }
-            // Get Event Quantity
-            BleDeviceFeature.TaskCode.GetEventQuantity -> {
-                getEventQuantity()
-            }
-            // Get Event
-            BleDeviceFeature.TaskCode.GetEvent -> {
-                getEvent()
-            }
-            // Delete Event
-            BleDeviceFeature.TaskCode.DeleteEvent -> {
-                showInputDialog()
-            }
-            // Get Lock Supported Unlock Types
-            BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes -> {
-                getLockSupportedUnlockTypes()
-            }
-            // Get User Ability
-            BleDeviceFeature.TaskCode.GetUserAbility -> {
-                getUserAbility()
-            }
-            // Get User Count
-            BleDeviceFeature.TaskCode.GetUserCount -> {
-                getUserCount()
-            }
-            // Is Matter Device
-            BleDeviceFeature.TaskCode.IsMatterDevice -> {
-                isMatterDevice()
-            }
-            // Get User Array
-            BleDeviceFeature.TaskCode.GetUserArray -> {
-                getUserArray()
-            }
-            // Get User
-            BleDeviceFeature.TaskCode.GetUser -> {
-                getUser()
-            }
-            // Add User
-            BleDeviceFeature.TaskCode.AddUser -> {
-                showInputDialog()
-            }
-            // Edit User
-            BleDeviceFeature.TaskCode.EditUser -> {
-                showInputDialog()
-            }
-            // Delete User
-            BleDeviceFeature.TaskCode.DeleteUser -> {
-                showInputDialog()
-            }
-            // Get Credential Array
-            BleDeviceFeature.TaskCode.GetCredentialArray -> {
-                getCredentialArray()
-            }
-            // Get Credential
-            BleDeviceFeature.TaskCode.GetCredential -> {
-                getCredential()
-            }
-            // Get Credential By Credential
-            BleDeviceFeature.TaskCode.GetCredentialByCredential -> {
-                getCredentialByCredential()
-            }
-            // Get Credential By User
-            BleDeviceFeature.TaskCode.GetCredentialByUser -> {
-                getCredentialByUser()
-            }
-            // Get Credential Hash
-            BleDeviceFeature.TaskCode.GetUserCredentialHash -> {
-                getUserCredentialHash()
-            }
-            // Get User Hash
-            BleDeviceFeature.TaskCode.GetBleUserHash -> {
-                getBleUserHash()
-            }
-            // Set All Data Synced
-            BleDeviceFeature.TaskCode.SetAllDataSynced -> {
-                setAllDataSynced()
-            }
-            // Scan Wifi
-            BleDeviceFeature.TaskCode.ScanWifi -> {
-                when(_currentDeviceStatus){
-                    is DeviceStatus.EightTwo -> {
-                        collectWifiList3()
-                        scanWifi3()
-                    }
-                    is DeviceStatus.B0 -> {
-                        collectWifiList3()
-                        scanWifi3()
-                    }
-                    else -> {
-                        collectWifiList()
-                        scanWifi()
-                    }
-                }
-            }
-            // Connect To Wifi
-            BleDeviceFeature.TaskCode.ConnectToWifi -> {
-                when(_currentDeviceStatus){
-                    is DeviceStatus.EightTwo -> {
-                        connectToWifi3("Sunion-SW", "S-device_W")
-                    }
-                    is DeviceStatus.B0 -> {
-                        connectToWifi3("Sunion-SW", "S-device_W")
-                    }
-                    else -> {
-                        connectToWifi("Sunion-SW", "S-device_W")
-                    }
-                }
-            }
-            // Set OTA Status
-            BleDeviceFeature.TaskCode.SetOTAUpdate -> {
-                if(!isBackgroundOTA) {
-                    // Foreground OTA Update
-                    otaUpdate(currentTarget, signatureV005)
-                } else {
-                    // Background OTA Update
-                    backGroundOTAUpdate()
-                }
-            }
-            // Set OTA Cancel
-            BleDeviceFeature.TaskCode.SetOTACancel -> {
-                setOTACancel(currentTarget)
-            }
-            // Disconnect
-            BleDeviceFeature.TaskCode.Disconnect -> {
-                disconnect()
-            }
-            else -> {}
+            _uiState.update { it.copy(btnEnabled = true) }
         }
-        _uiState.update { it.copy(btnEnabled = true) }
     }
 
-    private fun connect() {
+    private suspend fun connect() {
         val workInfos = WorkManager.getInstance(application).getWorkInfosForUniqueWork(WorkerNames.OTA_WORKER).get()
 
         val isRunningOrEnqueued = workInfos.any {
@@ -594,7 +609,9 @@ class HomeViewModel @Inject constructor(
             showLog("Please scan QR code to get lock connection information.")
             return
         }
-        _uiState.update { it.copy(isLoading = true) }
+        //建立一個信號，用來等待連線結果
+        val connectionResult = CompletableDeferred<Unit>()
+
         // Setup BLE connection state observer
         _bleConnectionStateListener?.cancel()
         _bleConnectionStateListener = statefulConnection.connState
@@ -602,7 +619,10 @@ class HomeViewModel @Inject constructor(
                 when (event.status) {
                     // something wrong
                     EventState.ERROR -> {
-                        _uiState.update { it.copy(isLoading = false, isConnectedWithLock = false) }
+                        _uiState.update { it.copy(isConnectedWithLock = false) }
+                        // 發生錯誤，通知等待結束
+                        connectionResult.completeExceptionally(Exception(event.message ?: "Connect Error"))
+
                         when (event.message) {
                             TimeoutException::class.java.simpleName -> {
                                 showLog("$functionName to lock timeout")
@@ -646,7 +666,6 @@ class HomeViewModel @Inject constructor(
                                         showLog("Incoming ${sunionBleNotification::class.simpleName} arrived.")
                                     }
                                     else -> {
-                                        _currentDeviceStatus = DeviceStatus.UNKNOWN
                                         _currentSunionBleNotification = SunionBleNotification.UNKNOWN
                                     }
                                 }
@@ -660,7 +679,7 @@ class HomeViewModel @Inject constructor(
                     EventState.SUCCESS -> {
                         if (event.status == EventState.SUCCESS && event.data?.first == true) {
                             model = lockConnectionInfo!!.model
-                            _uiState.update { it.copy(isLoading = false, isConnectedWithLock = true) }
+                            _uiState.update { it.copy(isConnectedWithLock = true) }
                             _lockConnectionInfo = lockConnectionInfo!!.copy(
                                 permission = statefulConnection.lockConnectionInfo.permission,
                                 keyTwo = statefulConnection.lockConnectionInfo.keyTwo,
@@ -676,6 +695,9 @@ class HomeViewModel @Inject constructor(
                             showLog("Lock connection information:")
                             showLog("$lockConnectionInfo")
                             initLock()
+
+                            // 連線成功，通知等待結束
+                            connectionResult.complete(Unit)
                         }
                     }
                     EventState.LOADING -> {}
@@ -686,253 +708,157 @@ class HomeViewModel @Inject constructor(
             .flowOn(Dispatchers.Default)
             .launchIn(viewModelScope)
         // connect to device
-        viewModelScope.launch {
-            showLog("Connecting to ${lockConnectionInfo!!.macAddress}...")
-            statefulConnection.establishConnection(
-                macAddress = lockConnectionInfo!!.macAddress,
-                keyOne = lockConnectionInfo!!.keyOne,
-                oneTimeToken = lockConnectionInfo!!.oneTimeToken,
-                permanentToken = lockConnectionInfo!!.permanentToken,
-                model = lockConnectionInfo!!.model,
-                isSilentlyFail = false
-            )
-        }
-    }
+        coroutineScope {
+            launch {
+                statefulConnection.establishConnection(
+                    macAddress = lockConnectionInfo!!.macAddress,
+                    keyOne = lockConnectionInfo!!.keyOne,
+                    oneTimeToken = lockConnectionInfo!!.oneTimeToken,
+                    permanentToken = lockConnectionInfo!!.permanentToken,
+                    model = lockConnectionInfo!!.model,
+                    isSilentlyFail = false
+                )
+            }
 
-    private fun initLock(){
-        val functionName = ::initLock.name
-        viewModelScope.launch {
-            runWithLoading(functionName){
-                val isAdminCodeExists = adminCodeUseCase.isAdminCodeExists()
-                showLog("isAdminCodeExists: $isAdminCodeExists")
-                if(!isAdminCodeExists) {
-                    val result = adminCodeUseCase.createAdminCode(adminCode)
-                    showLog("createAdminCode $adminCode: $result")
-                    val containsTask = uiState.value.taskList.any { it.first == BleDeviceFeature.TaskCode.DetermineLockDirection }
-                    if(containsTask) {
-                        when (val deviceStatus = lockDirectionUseCase()) {
-                            is DeviceStatus.D6 -> {
-                                _currentDeviceStatus = DeviceStatus.D6(
-                                    deviceStatus.config,
-                                    deviceStatus.lockState,
-                                    deviceStatus.battery,
-                                    deviceStatus.batteryState,
-                                    deviceStatus.timestamp
-                                )
-                                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                            }
-                            is DeviceStatus.A2 -> {
-                                _currentDeviceStatus = DeviceStatus.A2(
-                                    deviceStatus.direction,
-                                    deviceStatus.vacationMode,
-                                    deviceStatus.deadBolt,
-                                    deviceStatus.doorState,
-                                    deviceStatus.lockState,
-                                    deviceStatus.securityBolt,
-                                    deviceStatus.battery,
-                                    deviceStatus.batteryState
-                                )
-                                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                            }
-                            is DeviceStatus.EightTwo -> {
-                                _currentDeviceStatus = DeviceStatus.EightTwo(
-                                    deviceStatus.mainVersion,
-                                    deviceStatus.subVersion,
-                                    deviceStatus.direction,
-                                    deviceStatus.vacationMode,
-                                    deviceStatus.deadBolt,
-                                    deviceStatus.doorState,
-                                    deviceStatus.lockState,
-                                    deviceStatus.securityBolt,
-                                    deviceStatus.battery,
-                                    deviceStatus.batteryState
-                                )
-                                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                            }
-                            else -> {
-                                showLog("$functionName not support.")
-                            }
-                        }
-                        showLog("$functionName: success")
-                    } else {
-                        showLog("$functionName: success")
-                    }
+            try {
+                // 關鍵：這裡會掛起，直到 connectionResult.complete() 被呼叫
+                // 或是 30 秒後超時，避免永遠卡死
+                withTimeout(30000) {
+                    connectionResult.await()
                 }
+            } catch (e: TimeoutException) {
+                showLog("連線超時: ${e.message}")
             }
         }
     }
 
-    private fun getLockTime() {
-        val functionName = ::getLockTime.name
-        flow { emit(lockTimeUseCase.getTime()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { timeStamp ->
-                showLog("$functionName: $timeStamp")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun initLock(){
+        val functionName = "initLock"
+        val isAdminCodeExists = isAdminCodeExists()
+        if(!isAdminCodeExists) {
+            createAdminCode()
+        }
+        getLockConfig()
+        val containsGetLockSupportedUnlockTypesTask = uiState.value.taskList.any { it.first == BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes }
+        if(containsGetLockSupportedUnlockTypesTask) {
+            getLockSupportedUnlockTypes()
+        }
+        val containsGetUserAbilityTask = uiState.value.taskList.any { it.first == BleDeviceFeature.TaskCode.GetUserAbility }
+        if(containsGetUserAbilityTask) {
+            getUserAbility()
+        }
+        val containsDetermineLockTask = uiState.value.taskList.any { it.first == BleDeviceFeature.TaskCode.DetermineLockDirection }
+        if(containsDetermineLockTask) {
+            determineLockDirection()
+            showLog("$functionName: success")
+        } else {
+            showLog("$functionName: success")
+        }
     }
 
-    private fun setLockTime(time: Long = Instant.now().atZone(ZoneId.systemDefault()).toEpochSecond()) {
-        val functionName = ::setLockTime.name
-        flow { emit(lockTimeUseCase.setTime(time)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName result: $result")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun getLockTime(): Int {
+        val functionName = "getLockTime"
+        val result = lockTimeUseCase.getTime()
+        showLog("$functionName: $result")
+        return result
     }
 
-    private fun getLockTimeZone() {
-        val functionName = ::getLockTimeZone.name
-        when(model) {
-            "KDW01" -> {
-                flow { emit(lockTimeUseCase.getWiFiTimeZone()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+    private suspend fun setLockTime(time: Long = Instant.now().atZone(ZoneId.systemDefault()).toEpochSecond()): Boolean {
+        val functionName = "setLockTime"
+        val result = lockTimeUseCase.setTime(time)
+        showLog("$functionName result: $result")
+        return result
+    }
+
+    private suspend fun getLockTimeZone(): String {
+        val functionName = "getLockTimeZone"
+        val result = when(model) {
+            "KDW01", "TDW01", "TLRW01" -> {
+                lockTimeUseCase.getWiFiTimeZone()
             }
             else -> {
-                flow { emit(lockTimeUseCase.getTimeZone()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                lockTimeUseCase.getTimeZone()
             }
         }
+        showLog("$functionName result: $result")
+        return result
     }
 
-    private fun setLockTimeZone(timeZone: String = ZoneId.systemDefault().id) {
-        val functionName = ::setLockTimeZone.name
-        when(model) {
-            "KDW01" -> {
-                flow { emit(lockTimeUseCase.setWiFiTimeZone(timeZone)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to $timeZone result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+    private suspend fun setLockTimeZone(timeZone: String = ZoneId.systemDefault().id): Boolean {
+        val functionName = "setLockTimeZone"
+        val result = when(model) {
+            "KDW01", "TDW01", "TLRW01" -> {
+                lockTimeUseCase.setWiFiTimeZone(timeZone)
             }
             else -> {
-                flow { emit(lockTimeUseCase.setTimeZone(timeZone)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to $timeZone result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                lockTimeUseCase.setTimeZone(timeZone)
             }
         }
+        showLog("$functionName to $timeZone result: $result")
+        return result
     }
 
-    private fun getDeviceStatus() {
-        val functionName = ::getDeviceStatus.name
+    private suspend fun getDeviceStatus() {
+        val functionName = "getDeviceStatus"
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(deviceStatusD6UseCase()) }
-                    .catch { e -> showLog("$functionName.D6 exception $e") }
-                    .map { deviceStatus ->
-                        _currentDeviceStatus = DeviceStatus.D6(
-                            deviceStatus.config,
-                            deviceStatus.lockState,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState,
-                            deviceStatus.timestamp
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = deviceStatusD6UseCase()
+                _currentDeviceStatus = DeviceStatus.D6(
+                    deviceStatus.config,
+                    deviceStatus.lockState,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState,
+                    deviceStatus.timestamp
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             is DeviceStatus.A2 -> {
-                flow { emit(deviceStatusA2UseCase()) }
-                    .catch { e -> showLog("$functionName.A2 exception $e") }
-                    .map { deviceStatus ->
-                        _currentDeviceStatus = DeviceStatus.A2(
-                            deviceStatus.direction,
-                            deviceStatus.vacationMode,
-                            deviceStatus.deadBolt,
-                            deviceStatus.doorState,
-                            deviceStatus.lockState,
-                            deviceStatus.securityBolt,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = deviceStatusA2UseCase()
+                _currentDeviceStatus = DeviceStatus.A2(
+                    deviceStatus.direction,
+                    deviceStatus.vacationMode,
+                    deviceStatus.deadBolt,
+                    deviceStatus.doorState,
+                    deviceStatus.lockState,
+                    deviceStatus.securityBolt,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             is DeviceStatus.B0 -> {
-                flow { emit(plugConfigUseCase()) }
-                    .catch { e -> showLog("$functionName.B0 exception $e") }
-                    .map { deviceStatus ->
-                        _currentDeviceStatus = DeviceStatus.B0(
-                            deviceStatus.mainVersion,
-                            deviceStatus.subVersion,
-                            deviceStatus.setWifi,
-                            deviceStatus.connectWifi,
-                            deviceStatus.plugState
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = plugConfigUseCase()
+                _currentDeviceStatus = DeviceStatus.B0(
+                    deviceStatus.mainVersion,
+                    deviceStatus.subVersion,
+                    deviceStatus.setWifi,
+                    deviceStatus.connectWifi,
+                    deviceStatus.plugState
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(deviceStatus82UseCase()) }
-                    .catch { e -> showLog("$functionName.82 exception $e") }
-                    .map { deviceStatus ->
-                        _currentDeviceStatus = DeviceStatus.EightTwo(
-                            deviceStatus.mainVersion,
-                            deviceStatus.subVersion,
-                            deviceStatus.direction,
-                            deviceStatus.vacationMode,
-                            deviceStatus.deadBolt,
-                            deviceStatus.doorState,
-                            deviceStatus.lockState,
-                            deviceStatus.securityBolt,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = deviceStatus82UseCase()
+                _currentDeviceStatus = DeviceStatus.EightTwo(
+                    deviceStatus.mainVersion,
+                    deviceStatus.subVersion,
+                    deviceStatus.direction,
+                    deviceStatus.vacationMode,
+                    deviceStatus.deadBolt,
+                    deviceStatus.doorState,
+                    deviceStatus.lockState,
+                    deviceStatus.securityBolt,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleLockState() {
-        val functionName = ::toggleLockState.name
+    private suspend fun toggleLockState() {
+        val functionName = "toggleLockState"
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
                 val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
@@ -948,23 +874,16 @@ class HomeViewModel @Inject constructor(
                     showLog("Lock direction is not determined. Please set lock direction before toggle lock state.")
                     return
                 }
-                flow { emit(deviceStatusD6UseCase.setLockState(desiredState)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { deviceStatus ->
-                        showLog("$functionName to $desiredState")
-                        _currentDeviceStatus = DeviceStatus.D6(
-                            deviceStatus.config,
-                            deviceStatus.lockState,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState,
-                            deviceStatus.timestamp
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = deviceStatusD6UseCase.setLockState(desiredState)
+                showLog("$functionName to $desiredState")
+                _currentDeviceStatus = DeviceStatus.D6(
+                    deviceStatus.config,
+                    deviceStatus.lockState,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState,
+                    deviceStatus.timestamp
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             is DeviceStatus.A2 -> {
                 val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.A2
@@ -980,26 +899,19 @@ class HomeViewModel @Inject constructor(
                         return
                     }
                 }
-                flow { emit(deviceStatusA2UseCase.setLockState(desiredState)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { deviceStatus ->
-                        showLog("$functionName to $desiredState")
-                        _currentDeviceStatus = DeviceStatus.A2(
-                            deviceStatus.direction,
-                            deviceStatus.vacationMode,
-                            deviceStatus.deadBolt,
-                            deviceStatus.doorState,
-                            deviceStatus.lockState,
-                            deviceStatus.securityBolt,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus =deviceStatusA2UseCase.setLockState(desiredState)
+                showLog("$functionName to $desiredState")
+                _currentDeviceStatus = DeviceStatus.A2(
+                    deviceStatus.direction,
+                    deviceStatus.vacationMode,
+                    deviceStatus.deadBolt,
+                    deviceStatus.doorState,
+                    deviceStatus.lockState,
+                    deviceStatus.securityBolt,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             is DeviceStatus.EightTwo -> {
                 val deviceStatus82 = _currentDeviceStatus as DeviceStatus.EightTwo
@@ -1015,35 +927,28 @@ class HomeViewModel @Inject constructor(
                         return
                     }
                 }
-                flow { emit(deviceStatus82UseCase.setLockState(desiredState)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { deviceStatus ->
-                        showLog("$functionName to $desiredState")
-                        _currentDeviceStatus = DeviceStatus.EightTwo(
-                            deviceStatus.mainVersion,
-                            deviceStatus.subVersion,
-                            deviceStatus.direction,
-                            deviceStatus.vacationMode,
-                            deviceStatus.deadBolt,
-                            deviceStatus.doorState,
-                            deviceStatus.lockState,
-                            deviceStatus.securityBolt,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = deviceStatus82UseCase.setLockState(desiredState)
+                showLog("$functionName to $desiredState")
+                _currentDeviceStatus = DeviceStatus.EightTwo(
+                    deviceStatus.mainVersion,
+                    deviceStatus.subVersion,
+                    deviceStatus.direction,
+                    deviceStatus.vacationMode,
+                    deviceStatus.deadBolt,
+                    deviceStatus.doorState,
+                    deviceStatus.lockState,
+                    deviceStatus.securityBolt,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun autoUnlockToggleLockState() {
-        val functionName = ::autoUnlockToggleLockState.name
+    private suspend fun autoUnlockToggleLockState() {
+        val functionName = "autoUnlockToggleLockState"
         when (_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
                 val deviceStatus82 = _currentDeviceStatus as DeviceStatus.EightTwo
@@ -1062,22 +967,15 @@ class HomeViewModel @Inject constructor(
                         return
                     }
                 }
-                flow { emit(deviceStatus82UseCase.setAutoUnlockLockState(desiredState)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to $desiredState result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = deviceStatus82UseCase.setAutoUnlockLockState(desiredState)
+                showLog("$functionName to $desiredState result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleSecurityBolt() {
-        val functionName = ::toggleSecurityBolt.name
+    private suspend fun toggleSecurityBolt() {
+        val functionName = "toggleSecurityBolt"
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
                 val deviceStatusA2 = _currentDeviceStatus as DeviceStatus.A2
@@ -1093,26 +991,19 @@ class HomeViewModel @Inject constructor(
                         return
                     }
                 }
-                flow { emit(deviceStatusA2UseCase.setSecurityBolt(state)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { deviceStatus ->
-                        showLog("$functionName to $state")
-                        _currentDeviceStatus = DeviceStatus.A2(
-                            deviceStatus.direction,
-                            deviceStatus.vacationMode,
-                            deviceStatus.deadBolt,
-                            deviceStatus.doorState,
-                            deviceStatus.lockState,
-                            deviceStatus.securityBolt,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = deviceStatusA2UseCase.setSecurityBolt(state)
+                showLog("$functionName to $state")
+                _currentDeviceStatus = DeviceStatus.A2(
+                    deviceStatus.direction,
+                    deviceStatus.vacationMode,
+                    deviceStatus.deadBolt,
+                    deviceStatus.doorState,
+                    deviceStatus.lockState,
+                    deviceStatus.securityBolt,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             is DeviceStatus.EightTwo -> {
                 val deviceStatus82 = _currentDeviceStatus as DeviceStatus.EightTwo
@@ -1128,72 +1019,44 @@ class HomeViewModel @Inject constructor(
                         return
                     }
                 }
-                flow { emit(deviceStatus82UseCase.setSecurityBolt(state)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { deviceStatus ->
-                        showLog("$functionName to $state")
-                        _currentDeviceStatus = DeviceStatus.EightTwo(
-                            deviceStatus.mainVersion,
-                            deviceStatus.subVersion,
-                            deviceStatus.direction,
-                            deviceStatus.vacationMode,
-                            deviceStatus.deadBolt,
-                            deviceStatus.doorState,
-                            deviceStatus.lockState,
-                            deviceStatus.securityBolt,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val deviceStatus = deviceStatus82UseCase.setSecurityBolt(state)
+                showLog("$functionName to $state")
+                _currentDeviceStatus = DeviceStatus.EightTwo(
+                    deviceStatus.mainVersion,
+                    deviceStatus.subVersion,
+                    deviceStatus.direction,
+                    deviceStatus.vacationMode,
+                    deviceStatus.deadBolt,
+                    deviceStatus.doorState,
+                    deviceStatus.lockState,
+                    deviceStatus.securityBolt,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun getLockConfig() {
-        val functionName = ::getLockConfig.name
+    private suspend fun getLockConfig() {
+        val functionName = "getLockConfig"
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(lockConfigD4UseCase.get()) }
-                    .catch { e -> showLog("$functionName getLockConfig exception $e") }
-                    .map { lockConfig ->
-                        showLog("$functionName.D4: $lockConfig")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigD4UseCase.get()
+                showLog("$functionName.D4: $lockConfig")
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        showLog("$functionName.A0: $lockConfig")
-                        // filter not support function
-                        setSupportTaskList(lockConfig = lockConfig)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                showLog("$functionName.A0: $lockConfig")
+                // filter not support function
+                setSupportTaskList(lockConfig = lockConfig)
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        showLog("$functionName.80: $lockConfig")
-                        // filter not support function
-                        setSupportTaskList(lockConfig = lockConfig)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                showLog("$functionName.80: $lockConfig")
+                // filter not support function
+                setSupportTaskList(lockConfig = lockConfig)
             }
             else -> {
                 showLog("$functionName not support.")
@@ -1201,8 +1064,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun toggleKeyPressBeep(soundValue:Int = 0) {
-        val functionName = ::toggleKeyPressBeep.name
+    private suspend fun toggleKeyPressBeep(soundValue:Int = 0) {
+        val functionName = "toggleKeyPressBeep"
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
                 val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
@@ -1210,132 +1073,73 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                flow { emit(lockConfigD4UseCase.setKeyPressBeep(isSoundOn)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to $isSoundOn result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockConfigD4UseCase.setKeyPressBeep(isSoundOn)
+                showLog("$functionName to $isSoundOn result: $result")
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("lockConfigA0UseCase.get() exception $e") }
-                    .map { lockConfig ->
-                        val value = when (lockConfig.soundType) {
-                            0x01 -> if(lockConfig.soundValue == 100) 0 else 100
-                            0x02 -> if(lockConfig.soundValue == 100) 50 else if(lockConfig.soundValue == 50) 0 else 100
-                            else -> soundValue
-                        }
-                        val result = lockConfigA0UseCase.setSoundValue(value != 0, value)
-                        showLog("$functionName at type ${lockConfig.soundType} result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val value = when (lockConfig.soundType) {
+                    0x01 -> if(lockConfig.soundValue == 100) 0 else 100
+                    0x02 -> if(lockConfig.soundValue == 100) 50 else if(lockConfig.soundValue == 50) 0 else 100
+                    else -> soundValue
+                }
+                val result = lockConfigA0UseCase.setSoundValue(value != 0, value)
+                showLog("$functionName at type ${lockConfig.soundType} result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("lockConfig80UseCase.get() exception $e") }
-                    .map { lockConfig ->
-                        val value = when (lockConfig.soundType) {
-                            0x01 -> if(lockConfig.soundValue == 100) 0 else 100
-                            0x02 -> if(lockConfig.soundValue == 100) 50 else if(lockConfig.soundValue == 50) 0 else 100
-                            else -> soundValue
-                        }
-                        val result = lockConfig80UseCase.setSoundValue(value != 0, value)
-                        showLog("$functionName at type ${lockConfig.soundType} value $value result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val value = when (lockConfig.soundType) {
+                    0x01 -> if(lockConfig.soundValue == 100) 0 else 100
+                    0x02 -> if(lockConfig.soundValue == 100) 50 else if(lockConfig.soundValue == 50) 0 else 100
+                    else -> soundValue
+                }
+                val result = lockConfig80UseCase.setSoundValue(value != 0, value)
+                showLog("$functionName at type ${lockConfig.soundType} value $value result: $result")
             }
             else -> { showLog("Device status not support.") }
         }
     }
 
-    private fun toggleVirtualCode() {
-        val functionName = ::toggleVirtualCode.name
+    private suspend fun toggleVirtualCode() {
+        val functionName = "toggleVirtualCode"
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isVirtualCodeOn = lockConfig.virtualCode == BleV2Lock.VirtualCode.CLOSE.value
-                        val result = lockConfigA0UseCase.setVirtualCode(isVirtualCodeOn)
-                        showLog("$functionName to $isVirtualCodeOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val isVirtualCodeOn = lockConfig.virtualCode == BleV2Lock.VirtualCode.CLOSE.value
+                val result = lockConfigA0UseCase.setVirtualCode(isVirtualCodeOn)
+                showLog("$functionName to $isVirtualCodeOn result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isVirtualCodeOn = lockConfig.virtualCode == BleV3Lock.VirtualCode.CLOSE.value
-                        val result = lockConfig80UseCase.setVirtualCode(isVirtualCodeOn)
-                        showLog("$functionName to $isVirtualCodeOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isVirtualCodeOn = lockConfig.virtualCode == BleV3Lock.VirtualCode.CLOSE.value
+                val result = lockConfig80UseCase.setVirtualCode(isVirtualCodeOn)
+                showLog("$functionName to $isVirtualCodeOn result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleTwoFA() {
-        val functionName = ::toggleTwoFA.name
+    private suspend fun toggleTwoFA() {
+        val functionName = "toggleTwoFA"
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isTwoFAOn = lockConfig.twoFA == BleV2Lock.TwoFA.CLOSE.value
-                        val result = lockConfigA0UseCase.setTwoFA(isTwoFAOn)
-                        showLog("$functionName to $isTwoFAOn result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val isTwoFAOn = lockConfig.twoFA == BleV2Lock.TwoFA.CLOSE.value
+                val result = lockConfigA0UseCase.setTwoFA(isTwoFAOn)
+                showLog("$functionName to $isTwoFAOn result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isTwoFAOn = lockConfig.twoFA == BleV3Lock.TwoFA.CLOSE.value
-                        val result = lockConfig80UseCase.setTwoFA(isTwoFAOn)
-                        showLog("$functionName to $isTwoFAOn result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isTwoFAOn = lockConfig.twoFA == BleV3Lock.TwoFA.CLOSE.value
+                val result = lockConfig80UseCase.setTwoFA(isTwoFAOn)
+                showLog("$functionName to $isTwoFAOn result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleVacationMode() {
-        val functionName = ::toggleVacationMode.name
+    private suspend fun toggleVacationMode() {
+        val functionName = "toggleVacationMode"
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
                 val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
@@ -1343,51 +1147,26 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                flow { emit(lockConfigD4UseCase.setVacationMode(isVacationModeOn)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to $isVacationModeOn result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockConfigD4UseCase.setVacationMode(isVacationModeOn)
+                showLog("$functionName to $isVacationModeOn result: $result")
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isVacationModeOn = lockConfig.vacationMode == BleV2Lock.VacationMode.CLOSE.value
-                        val result = lockConfigA0UseCase.setVacationMode(isVacationModeOn)
-                        showLog("$functionName to $isVacationModeOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val isVacationModeOn = lockConfig.vacationMode == BleV2Lock.VacationMode.CLOSE.value
+                val result = lockConfigA0UseCase.setVacationMode(isVacationModeOn)
+                showLog("$functionName to $isVacationModeOn result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isVacationModeOn = lockConfig.vacationMode == BleV3Lock.VacationMode.CLOSE.value
-                        val result = lockConfig80UseCase.setVacationMode(isVacationModeOn)
-                        showLog("$functionName to $isVacationModeOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isVacationModeOn = lockConfig.vacationMode == BleV3Lock.VacationMode.CLOSE.value
+                val result = lockConfig80UseCase.setVacationMode(isVacationModeOn)
+                showLog("$functionName to $isVacationModeOn result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleGuidingCode() {
+    private suspend fun toggleGuidingCode() {
         val functionName = ::toggleGuidingCode.name
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
@@ -1396,52 +1175,27 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                flow { emit(lockConfigD4UseCase.setGuidingCode(isGuidingCodeOn)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to $isGuidingCodeOn result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockConfigD4UseCase.setGuidingCode(isGuidingCodeOn)
+                showLog("$functionName to $isGuidingCodeOn result: $result")
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isGuidingCodeOn = lockConfig.guidingCode == BleV2Lock.GuidingCode.CLOSE.value
-                        val result = lockConfigA0UseCase.setGuidingCode(isGuidingCodeOn)
-                        showLog("$functionName to $isGuidingCodeOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val isGuidingCodeOn = lockConfig.guidingCode == BleV2Lock.GuidingCode.CLOSE.value
+                val result = lockConfigA0UseCase.setGuidingCode(isGuidingCodeOn)
+                showLog("$functionName to $isGuidingCodeOn result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isGuidingCodeOn = lockConfig.guidingCode == BleV3Lock.GuidingCode.CLOSE.value
-                        val result = lockConfig80UseCase.setGuidingCode(isGuidingCodeOn)
-                        showLog("$functionName to $isGuidingCodeOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isGuidingCodeOn = lockConfig.guidingCode == BleV3Lock.GuidingCode.CLOSE.value
+                val result = lockConfig80UseCase.setGuidingCode(isGuidingCodeOn)
+                showLog("$functionName to $isGuidingCodeOn result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleAutoLock(autoLockTime: Int = 10) {
-        val functionName = ::toggleAutoLock.name
+    private suspend fun toggleAutoLock(autoLockTime: Int = 10) {
+        val functionName = "toggleAutoLock"
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
                 val deviceStatusD6 = _currentDeviceStatus as DeviceStatus.D6
@@ -1449,88 +1203,43 @@ class HomeViewModel @Inject constructor(
                     true -> { false }
                     false -> { true }
                 }
-                flow { emit(lockConfigD4UseCase.setAutoLock(isAutoLock, autoLockTime)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if (isAutoLock)
-                            showLog("$functionName to true and auto lock time to $autoLockTime result: $result")
-                        else
-                            showLog("$functionName to false result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockConfigD4UseCase.setAutoLock(isAutoLock, autoLockTime)
+                if (isAutoLock) {
+                    showLog("$functionName to true and auto lock time to $autoLockTime result: $result")
+                } else {
+                    showLog("$functionName to false result: $result")
+                }
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isAutoLock = lockConfig.autoLock == BleV2Lock.AutoLock.CLOSE.value
-                        val result = lockConfigA0UseCase.setAutoLock(isAutoLock, autoLockTime)
-                        showLog("$functionName to $isAutoLock and auto lock time to $autoLockTime result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val isAutoLock = lockConfig.autoLock == BleV2Lock.AutoLock.CLOSE.value
+                val result = lockConfigA0UseCase.setAutoLock(isAutoLock, autoLockTime)
+                showLog("$functionName to $isAutoLock and auto lock time to $autoLockTime result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isAutoLock = lockConfig.autoLock == BleV3Lock.AutoLock.CLOSE.value
-                        val result = lockConfig80UseCase.setAutoLock(isAutoLock, autoLockTime)
-                        showLog("$functionName to $isAutoLock and auto lock time to $autoLockTime result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isAutoLock = lockConfig.autoLock == BleV3Lock.AutoLock.CLOSE.value
+                val result = lockConfig80UseCase.setAutoLock(isAutoLock, autoLockTime)
+                showLog("$functionName to $isAutoLock and auto lock time to $autoLockTime result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun setLockLocation(latitude: Double, longitude: Double) {
-        val functionName = ::setLockLocation.name
+    private suspend fun setLockLocation(latitude: Double = 25.03369, longitude: Double = 121.564128) {
+        val functionName = "setLockLocation"
         when (_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(lockConfigD4UseCase.setLocation(latitude = latitude, longitude = longitude)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to (${latitude}, ${longitude}) result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockConfigD4UseCase.setLocation(latitude = latitude, longitude = longitude)
+                showLog("$functionName to (${latitude}, ${longitude}) result: $result")
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.setLocation(latitude = latitude, longitude = longitude)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to (${latitude}, ${longitude}) result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockConfigA0UseCase.setLocation(latitude = latitude, longitude = longitude)
+                showLog("$functionName to (${latitude}, ${longitude}) result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.setLocation(latitude = latitude, longitude = longitude)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName to (${latitude}, ${longitude}) result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockConfig80UseCase.setLocation(latitude = latitude, longitude = longitude)
+                showLog("$functionName to (${latitude}, ${longitude}) result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -1538,282 +1247,188 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun toggleOperatingSound() {
-        val functionName = ::toggleOperatingSound.name
+    private suspend fun toggleOperatingSound() {
+        val functionName = "toggleOperatingSound"
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isOperatingSoundOn = lockConfig.operatingSound == BleV2Lock.OperatingSound.CLOSE.value
-                        val result = lockConfigA0UseCase.setOperatingSound(isOperatingSoundOn)
-                        showLog("$functionName to $isOperatingSoundOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val isOperatingSoundOn = lockConfig.operatingSound == BleV2Lock.OperatingSound.CLOSE.value
+                val result = lockConfigA0UseCase.setOperatingSound(isOperatingSoundOn)
+                showLog("$functionName to $isOperatingSoundOn result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isOperatingSoundOn = lockConfig.operatingSound == BleV3Lock.OperatingSound.CLOSE.value
-                        val result = lockConfig80UseCase.setOperatingSound(isOperatingSoundOn)
-                        showLog("$functionName to $isOperatingSoundOn result: $result")
-                        result
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isOperatingSoundOn = lockConfig.operatingSound == BleV3Lock.OperatingSound.CLOSE.value
+                val result = lockConfig80UseCase.setOperatingSound(isOperatingSoundOn)
+                showLog("$functionName to $isOperatingSoundOn result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleShowFastTrackMode() {
-        val functionName = ::toggleShowFastTrackMode.name
+    private suspend fun toggleShowFastTrackMode() {
+        val functionName = "toggleShowFastTrackMode"
         when (_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockConfigA0UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV2Lock.ShowFastTrackMode.CLOSE.value
-                        val result = lockConfigA0UseCase.setShowFastTrackMode(isShowFastTrackModeOn)
-                        showLog("$functionName to $isShowFastTrackModeOn result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfigA0UseCase.get()
+                val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV2Lock.ShowFastTrackMode.CLOSE.value
+                val result = lockConfigA0UseCase.setShowFastTrackMode(isShowFastTrackModeOn)
+                showLog("$functionName to $isShowFastTrackModeOn result: $result")
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV3Lock.ShowFastTrackMode.CLOSE.value
-                        val result = lockConfig80UseCase.setShowFastTrackMode(isShowFastTrackModeOn)
-                        showLog("$functionName to $isShowFastTrackModeOn result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isShowFastTrackModeOn = lockConfig.showFastTrackMode == BleV3Lock.ShowFastTrackMode.CLOSE.value
+                val result = lockConfig80UseCase.setShowFastTrackMode(isShowFastTrackModeOn)
+                showLog("$functionName to $isShowFastTrackModeOn result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun toggleSabbathMode() {
-        val functionName = ::toggleSabbathMode.name
+    private suspend fun toggleSabbathMode() {
+        val functionName = "toggleSabbathMode"
         when (_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val isSabbathMode = lockConfig.sabbathMode == BleV3Lock.SabbathMode.CLOSE.value
-                        val result = lockConfig80UseCase.setSabbathMode(isSabbathMode)
-                        showLog("$functionName to $isSabbathMode result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val lockConfig = lockConfig80UseCase.get()
+                val isSabbathMode = lockConfig.sabbathMode == BleV3Lock.SabbathMode.CLOSE.value
+                val result = lockConfig80UseCase.setSabbathMode(isSabbathMode)
+                showLog("$functionName to $isSabbathMode result: $result")
             }
             else -> { showLog("$functionName not support.") }
         }
     }
 
-    private fun togglePhoneticLanguage() {
-        val functionName = ::togglePhoneticLanguage.name
+    private suspend fun togglePhoneticLanguage() {
+        val functionName = "togglePhoneticLanguage"
         when (_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockConfig80UseCase.get()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { lockConfig ->
-                        val phoneticLanguage = lockConfig.phoneticLanguage
-                        if(phoneticLanguage.isNotSupport()){
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        } else {
-                            val supportPhoneticLanguageList = lockConfig.supportPhoneticLanguage.toSupportPhoneticLanguageList()
-                            var nextPhoneticLanguage = -1
-                            for (i in supportPhoneticLanguageList.indices) {
-                                val nextIndex = if (i == supportPhoneticLanguageList.lastIndex) 0 else i + 1
-                                nextPhoneticLanguage = supportPhoneticLanguageList[nextIndex]
-                            }
-                            if(phoneticLanguage != nextPhoneticLanguage){
-                                val result = lockConfig80UseCase.setPhoneticLanguage(nextPhoneticLanguage)
-                                val languageName = BleV3Lock.PhoneticLanguage.entries.firstOrNull { it.value == nextPhoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
-                                showLog("$functionName to $languageName result: $result")
-                            } else {
-                                val languageName = BleV3Lock.PhoneticLanguage.entries.firstOrNull { it.value == phoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
-                                showLog("Already set $languageName language.")
-                            }
-                        }
+                val lockConfig =lockConfig80UseCase.get()
+                val phoneticLanguage = lockConfig.phoneticLanguage
+                if(phoneticLanguage.isNotSupport()){
+                    throw LockStatusException.LockFunctionNotSupportException()
+                } else {
+                    val supportPhoneticLanguageList = lockConfig.supportPhoneticLanguage.toSupportPhoneticLanguageList()
+                    var nextPhoneticLanguage = -1
+                    for (i in supportPhoneticLanguageList.indices) {
+                        val nextIndex = if (i == supportPhoneticLanguageList.lastIndex) 0 else i + 1
+                        nextPhoneticLanguage = supportPhoneticLanguageList[nextIndex]
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> { showLog("$functionName not support.") }
-        }
-    }
-
-    private fun determineLockDirection() {
-        val functionName = ::determineLockDirection.name
-        showLog(functionName)
-        flow { emit(lockDirectionUseCase()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { deviceStatus ->
-                when (deviceStatus) {
-                    is DeviceStatus.D6 -> {
-                        _currentDeviceStatus = DeviceStatus.D6(
-                            deviceStatus.config,
-                            deviceStatus.lockState,
-                            deviceStatus.battery,
-                            deviceStatus.batteryState,
-                            deviceStatus.timestamp
-                        )
-                        updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                    }
-                    is DeviceStatus.A2 -> {
-                        if(deviceStatus.direction.isNotSupport()) {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        } else {
-                            _currentDeviceStatus = DeviceStatus.A2(
-                                deviceStatus.direction,
-                                deviceStatus.vacationMode,
-                                deviceStatus.deadBolt,
-                                deviceStatus.doorState,
-                                deviceStatus.lockState,
-                                deviceStatus.securityBolt,
-                                deviceStatus.battery,
-                                deviceStatus.batteryState
-                            )
-                            updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                        }
-                    }
-                    is DeviceStatus.EightTwo -> {
-                        if(deviceStatus.direction.isNotSupport()) {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        } else {
-                            _currentDeviceStatus = DeviceStatus.EightTwo(
-                                deviceStatus.mainVersion,
-                                deviceStatus.subVersion,
-                                deviceStatus.direction,
-                                deviceStatus.vacationMode,
-                                deviceStatus.deadBolt,
-                                deviceStatus.doorState,
-                                deviceStatus.lockState,
-                                deviceStatus.securityBolt,
-                                deviceStatus.battery,
-                                deviceStatus.batteryState
-                            )
-                            updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
-                        }
-                    }
-                    else -> {
-                        showLog("$functionName not support.")
+                    if(phoneticLanguage != nextPhoneticLanguage){
+                        val result = lockConfig80UseCase.setPhoneticLanguage(nextPhoneticLanguage)
+                        val languageName = BleV3Lock.PhoneticLanguage.entries.firstOrNull { it.value == nextPhoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
+                        showLog("$functionName to $languageName result: $result")
+                    } else {
+                        val languageName = BleV3Lock.PhoneticLanguage.entries.firstOrNull { it.value == phoneticLanguage } ?: BleV3Lock.PhoneticLanguage.NOT_SUPPORT
+                        showLog("Already set $languageName language.")
                     }
                 }
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+            else -> { showLog("$functionName not support.") }
+        }
     }
 
-    private fun getLockName() {
-        val functionName = ::getLockName.name
-        flow { emit(lockNameUseCase.getName()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { name ->
-                showLog("$functionName: $name")
+    private suspend fun determineLockDirection() {
+        val functionName = "determineLockDirection"
+        showLog(functionName)
+        when (val deviceStatus = lockDirectionUseCase()) {
+            is DeviceStatus.D6 -> {
+                _currentDeviceStatus = DeviceStatus.D6(
+                    deviceStatus.config,
+                    deviceStatus.lockState,
+                    deviceStatus.battery,
+                    deviceStatus.batteryState,
+                    deviceStatus.timestamp
+                )
+                updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
-    }
-
-    private fun setLockName(name: String = "New_Lock") {
-        val functionName = ::setLockName.name
-        flow { emit(lockNameUseCase.setName(name)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName to \"$name\" result: $result")
+            is DeviceStatus.A2 -> {
+                if(deviceStatus.direction.isNotSupport()) {
+                    showLog("$functionName not support.")
+                } else {
+                    _currentDeviceStatus = DeviceStatus.A2(
+                        deviceStatus.direction,
+                        deviceStatus.vacationMode,
+                        deviceStatus.deadBolt,
+                        deviceStatus.doorState,
+                        deviceStatus.lockState,
+                        deviceStatus.securityBolt,
+                        deviceStatus.battery,
+                        deviceStatus.batteryState
+                    )
+                    updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
+                }
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
-    }
-
-    private fun isAdminCodeExists() {
-        val functionName = ::isAdminCodeExists.name
-        flow { emit(adminCodeUseCase.isAdminCodeExists()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName: $result")
+            is DeviceStatus.EightTwo -> {
+                if(deviceStatus.direction.isNotSupport()) {
+                    showLog("$functionName not support.")
+                } else {
+                    _currentDeviceStatus = DeviceStatus.EightTwo(
+                        deviceStatus.mainVersion,
+                        deviceStatus.subVersion,
+                        deviceStatus.direction,
+                        deviceStatus.vacationMode,
+                        deviceStatus.deadBolt,
+                        deviceStatus.doorState,
+                        deviceStatus.lockState,
+                        deviceStatus.securityBolt,
+                        deviceStatus.battery,
+                        deviceStatus.batteryState
+                    )
+                    updateCurrentDeviceStatusOrNotification(_currentDeviceStatus)
+                }
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
-    }
-
-    private fun createAdminCode(code: String = adminCode) {
-        val functionName = ::createAdminCode.name
-        flow { emit(adminCodeUseCase.createAdminCode(code)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName $code result: $result")
+            else -> {
+                showLog("$functionName not support.")
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+        }
     }
 
-    private fun updateAdminCode(oldCode: String = adminCode, newCode: String = "1234") {
-        val functionName = ::updateAdminCode.name
-        flow { emit(adminCodeUseCase.updateAdminCode(oldCode, newCode)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                adminCode = newCode
-                showLog("$functionName from $oldCode to $newCode result: $result")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun getLockName() {
+        val functionName = "getLockName"
+        val name = lockNameUseCase.getName()
+        showLog("$functionName: $name")
     }
 
-    private fun getAdminCodePosition() {
-        val functionName = ::getAdminCodePosition.name
-        flow { emit(adminCodeUseCase.getAdminCodePosition()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                val adminPosition = BleV3Lock.AdminPosition(result.userIndex, result.credentialIndex)
-                showLog("$functionName adminPosition $adminPosition")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun setLockName(name: String = "New_Lock") {
+        val functionName = "setLockName"
+        val result = lockNameUseCase.setName(name)
+        showLog("$functionName to $name result: $result")
     }
 
-    private fun togglePlugState() {
-        val functionName = ::togglePlugState.name
+    private suspend fun isAdminCodeExists(): Boolean {
+        val functionName = "isAdminCodeExists"
+        val result = adminCodeUseCase.isAdminCodeExists()
+        showLog("$functionName: $result")
+        return result
+    }
+
+    private suspend fun createAdminCode(code: String = "0000") {
+        val functionName = "createAdminCode"
+        val result = adminCodeUseCase.createAdminCode(code)
+        if(result) {
+            adminCode = code
+        }
+        showLog("$functionName $code result: $result")
+    }
+
+    private suspend fun updateAdminCode(oldCode: String = adminCode, newCode: String = "1234") {
+        val functionName = "updateAdminCode"
+        val result = adminCodeUseCase.updateAdminCode(oldCode, newCode)
+        if(result) {
+            adminCode = newCode
+        }
+        showLog("$functionName from $oldCode to $newCode result: $result")
+    }
+
+    private suspend fun getAdminCodePosition() {
+        val functionName = "getAdminCodePosition"
+        val result = adminCodeUseCase.getAdminCodePosition()
+        val adminPosition = BleV3Lock.AdminPosition(result.userIndex, result.credentialIndex)
+        showLog("$functionName adminPosition $adminPosition")
+    }
+
+    private suspend fun togglePlugState() {
+        val functionName = "togglePlugState"
         when (_currentDeviceStatus) {
             is DeviceStatus.B0 -> {
                 val deviceStatusB0 = _currentDeviceStatus as DeviceStatus.B0
@@ -1824,18 +1439,13 @@ class HomeViewModel @Inject constructor(
                         BleV2Lock.PlugState.POWER_ON.value
                     }
                 showLog("$functionName $plugState")
-                flow { emit(plugConfigUseCase.setPlugState(plugState)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                plugConfigUseCase.setPlugState(plugState)
             }
             else -> {}
         }
     }
 
-    private fun updateCurrentDeviceStatusOrNotification(sunionBleNotification: SunionBleNotification) {
+    private suspend fun updateCurrentDeviceStatusOrNotification(sunionBleNotification: SunionBleNotification) {
         when (sunionBleNotification) {
             is DeviceStatus -> {
                 showLog("Current is ${sunionBleNotification::class.simpleName}: $_currentDeviceStatus")
@@ -1919,307 +1529,183 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getFirmwareVersion() {
-        val functionName = ::getFirmwareVersion.name
-        flow { emit(lockUtilityUseCase.getFirmwareVersion()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { version ->
-                showLog("$functionName: $version")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun getFirmwareVersion() {
+        val functionName = "getFirmwareVersion"
+        val version = lockUtilityUseCase.getFirmwareVersion()
+        showLog("$functionName: $version")
     }
 
-    private fun getRfVersion() {
+    private suspend fun getRfVersion() {
         val functionName = ::getRfVersion.name
-        flow { emit(lockUtilityUseCase.getRfVersion()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { version ->
-                showLog("$functionName: $version")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+        val version = lockUtilityUseCase.getRfVersion()
+        showLog("$functionName: $version")
     }
 
-    private fun getMcuVersion() {
+    private suspend fun getMcuVersion() {
         val functionName = ::getMcuVersion.name
-        flow { emit(lockUtilityUseCase.getMcuVersion()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { version ->
-                showLog("$functionName: $version")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+        val version = lockUtilityUseCase.getMcuVersion()
+        showLog("$functionName: $version")
     }
 
-    private fun factoryReset(code: String = adminCode) {
+    private suspend fun factoryReset(code: String = adminCode) {
         val functionName = "factoryReset"
-        flow { emit(lockUtilityUseCase.factoryReset(code)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName: $result")
-                if(result){
-                    _lockConnectionInfo = null
-                    userAbility = null
-                    _uiState.update { it.copy(btnEnabled = false) }
+        val result = lockUtilityUseCase.factoryReset(code)
+        showLog("$functionName: $result")
+        if(result){
+            _lockConnectionInfo = null
+            userAbility = null
+            _currentDeviceStatus = DeviceStatus.UNKNOWN
+            _currentSunionBleNotification = SunionBleNotification.UNKNOWN
+            _uiState.update { it.copy(btnEnabled = false) }
+        }
+    }
+
+    private suspend fun factoryResetNoAdmin() {
+        val functionName = "factoryResetNoAdmin"
+        val result = lockUtilityUseCase.factoryReset()
+        showLog("$functionName: $result")
+        if(result){
+            _lockConnectionInfo = null
+            userAbility = null
+            _currentDeviceStatus = DeviceStatus.UNKNOWN
+            _currentSunionBleNotification = SunionBleNotification.UNKNOWN
+            _uiState.update { it.copy(btnEnabled = false) }
+        }
+    }
+
+    private suspend fun restart() {
+        val functionName = "restart"
+        val result = lockUtilityUseCase.restart()
+        showLog("$functionName: $result")
+    }
+
+    private suspend fun getTokenArray(){
+        val functionName = "getTokenArray"
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                val tokenArray = lockBleUserUseCase.getBleUserArray()
+                tokenArray.forEach { index ->
+                    lastTokenIndex = index
+                }
+                showLog("$functionName: $tokenArray")
+            }
+            else -> {
+                val tokenArray = lockTokenUseCase.getTokenArray()
+                tokenArray.forEach { index ->
+                    lastTokenIndex = index
+                }
+                showLog("$functionName: $tokenArray")
+            }
+        }
+    }
+
+    private suspend fun getToken(){
+        val functionName = "getToken"
+        when(_currentDeviceStatus) {
+            is DeviceStatus.EightTwo -> {
+                val tokenArray = lockBleUserUseCase.getBleUserArray()
+                tokenArray.forEach { index ->
+                    val deviceToken = lockBleUserUseCase.getBleUser(index)
+                    if(deviceToken.isPermanent){
+                        showLog("$functionName[$index] is permanent token: $deviceToken")
+                    } else {
+                        showLog("$functionName[$index] is one time token: ${deviceToken.token} name: ${deviceToken.name} permission: ${deviceToken.permission}")
+                    }
                 }
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
-    }
-
-    private fun factoryResetNoAdmin() {
-        val functionName = "factoryReset"
-        flow { emit(lockUtilityUseCase.factoryReset()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName: $result")
-                if(result){
-                    _lockConnectionInfo = null
-                    userAbility = null
-                    _uiState.update { it.copy(btnEnabled = false) }
+            else -> {
+                val tokenArray = lockTokenUseCase.getTokenArray()
+                tokenArray.forEach { index ->
+                    val deviceToken = lockTokenUseCase.getToken(index)
+                    if(deviceToken.isPermanent){
+                        showLog("$functionName[$index] is permanent token: $deviceToken")
+                    } else {
+                        showLog("$functionName[$index] is one time token: ${deviceToken.token} name: ${deviceToken.name} permission: ${deviceToken.permission}")
+                    }
                 }
             }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+        }
     }
 
-    private fun restart() {
-        val functionName = ::restart.name
-        flow { emit(lockUtilityUseCase.restart()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName: $result")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
-    }
-
-    private fun getTokenArray(){
-        val functionName = ::getTokenArray.name
+    private suspend fun addOneTimeToken(permission: String = "L", name: String = "User ${lastTokenIndex + 1}") {
+        val functionName = "addOneTimeToken"
         when(_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockBleUserUseCase.getBleUserArray()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { tokenArray ->
-                        tokenArray.forEach { index ->
-                            lastTokenIndex = index
-                        }
-                        showLog("$functionName: $tokenArray")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockBleUserUseCase.addOneTimeBleUser(permission, name, identity)
+                showLog("$functionName permission: $permission name: $name\nresult: $result")
+                if(result.isSuccessful){
+                    lastTokenIndex += 1
+                }
             }
             else -> {
-                flow { emit(lockTokenUseCase.getTokenArray()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { tokenArray ->
-                        tokenArray.forEach { index ->
-                            lastTokenIndex = index
-                        }
-                        showLog("$functionName: $tokenArray")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockTokenUseCase.addOneTimeToken(permission, name)
+                showLog("$functionName permission: $permission name: $name\nresult: $result")
+                if(result.isSuccessful){
+                    lastTokenIndex += 1
+                }
             }
         }
     }
 
-    private fun getToken(){
-        val functionName = ::getToken.name
+    private suspend fun editToken(index:Int = lastTokenIndex, permission: String = "A", name: String = "User $lastTokenIndex ed") {
+        val functionName = "editToken"
         when(_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockBleUserUseCase.getBleUserArray()) }
-                    .catch { e -> showLog("$functionName array exception $e") }
-                    .map { tokenArray ->
-                        tokenArray.forEach { index ->
-                            val deviceToken = lockBleUserUseCase.getBleUser(index)
-                            if(deviceToken.isPermanent){
-                                showLog("$functionName[$index] is permanent token: $deviceToken")
-                            } else {
-                                showLog("$functionName[$index] is one time token: ${deviceToken.token} name: ${deviceToken.name} permission: ${deviceToken.permission}")
-                            }
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-
+                val result = lockBleUserUseCase.editBleUser(index, permission, name, identity)
+                showLog("$functionName[$index] permission: $permission name: $name\nresult: $result")
             }
             else -> {
-                flow { emit(lockTokenUseCase.getTokenArray()) }
-                    .catch { e -> showLog("$functionName array exception $e") }
-                    .map { tokenArray ->
-                        tokenArray.forEach { index ->
-                            val deviceToken = lockTokenUseCase.getToken(index)
-                            if(deviceToken.isPermanent){
-                                showLog("$functionName[$index] is permanent token: $deviceToken")
-                            } else {
-                                showLog("$functionName[$index] is one time token: ${deviceToken.token} name: ${deviceToken.name} permission: ${deviceToken.permission}")
-                            }
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockTokenUseCase.editToken(index, permission, name)
+                showLog("$functionName[$index] permission: $permission name: $name\nresult: $result")
             }
         }
     }
 
-    private fun addOneTimeToken(permission: String = "L", name: String = "User ${lastTokenIndex + 1}") {
-        val functionName = ::addOneTimeToken.name
+    private suspend fun deleteToken(index: Int = lastTokenIndex, code: String = "") {
+        val functionName = "deleteToken"
         when(_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockBleUserUseCase.addOneTimeBleUser(permission, name, identity)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName permission: $permission name: $name\nresult: $result")
-                        if(result.isSuccessful){
-                            lastTokenIndex += 1
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockBleUserUseCase.deleteBleUser(index, code)
+                showLog("$functionName[$index] code: $code\nresult: $result")
+                if(result) {
+                    lastTokenIndex -= 1
+                }
             }
             else -> {
-                flow { emit(lockTokenUseCase.addOneTimeToken(permission, name)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName permission: $permission name: $name\nresult: $result")
-                        if(result.isSuccessful){
-                            lastTokenIndex += 1
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockTokenUseCase.deleteToken(index, code)
+                showLog("$functionName[$index] code: $code\nresult: $result")
+                if(result) {
+                    lastTokenIndex -= 1
+                }
             }
         }
     }
 
-    private fun editToken(index:Int = lastTokenIndex, permission: String = "A", name: String = "User $lastTokenIndex ed") {
-        val functionName = ::editToken.name
-        when(_currentDeviceStatus) {
-            is DeviceStatus.EightTwo -> {
-                flow { emit(lockBleUserUseCase.editBleUser(index, permission, name, identity)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName[$index] permission: $permission name: $name\nresult: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> {
-                flow { emit(lockTokenUseCase.editToken(index, permission, name)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName[$index] permission: $permission name: $name\nresult: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-        }
-    }
-
-    private fun deleteToken(index: Int, code: String = "") {
-        val functionName = ::deleteToken.name
-        when(_currentDeviceStatus) {
-            is DeviceStatus.EightTwo -> {
-                flow { emit(lockBleUserUseCase.deleteBleUser(index, code)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName[$index] code: $code\nresult: $result")
-                        if(result) {
-                            lastTokenIndex -= 1
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            else -> {
-                flow { emit(lockTokenUseCase.deleteToken(index, code)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName[$index] code: $code\nresult: $result")
-                        if(result) {
-                            lastTokenIndex -= 1
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-        }
-    }
-
-    private fun getAccessCodeArray(){
-        val functionName = ::getAccessCodeArray.name
+    private suspend fun getAccessCodeArray(){
+        val functionName = "getAccessCodeArray"
         when(_currentDeviceStatus){
             is DeviceStatus.D6 -> {
-                flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { accessCodeArray ->
-                        accessCodeArray.forEachIndexed { index, value ->
-                            if (value) {
-                                lastCodeIndex = index
-                            }
-                        }
-                        showLog("$functionName: $accessCodeArray")
+                val accessCodeArray = lockAccessCodeUseCase.getAccessCodeArray()
+                accessCodeArray.forEachIndexed { index, value ->
+                    if (value) {
+                        lastCodeCardIndex = index
                     }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                }
+                showLog("$functionName: $accessCodeArray")
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.accessCodeQuantity.isSupport2Byte()) {
-                            val accessCodeArray = lockAccessUseCase.getAccessCodeArray()
-                            accessCodeArray.forEachIndexed { index, value ->
-                                if (value) {
-                                    lastCodeCardIndex = index
-                                }
-                            }
-                            showLog("$functionName: $accessCodeArray")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCodeQuantity.isSupport2Byte()) {
+                    val accessCodeArray = lockAccessUseCase.getAccessCodeArray()
+                    accessCodeArray.forEachIndexed { index, value ->
+                        if (value) {
+                            lastCodeCardIndex = index
                         }
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                    showLog("$functionName: $accessCodeArray")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2227,51 +1713,34 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getAccessCode(){
-        val functionName = ::getAccessCode.name
+    private suspend fun getAccessCode(){
+        val functionName = "getAccessCode"
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(lockAccessCodeUseCase.getAccessCodeArray()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { list ->
-                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
-                        indexIterable.forEach { index ->
-                            val accessCode = lockAccessCodeUseCase.getAccessCode(index)
+                val list = lockAccessCodeUseCase.getAccessCodeArray()
+                val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                indexIterable.forEach { index ->
+                    val accessCode = lockAccessCodeUseCase.getAccessCode(index)
+                    lastCodeIndex = index
+                    showLog("$functionName[$index] is access code: $accessCode")
+                }
+            }
+            is DeviceStatus.A2 -> {
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if (result.accessCodeQuantity.isSupport2Byte()) {
+                    val list = lockAccessUseCase.getAccessCodeArray()
+                    val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
+                    Timber.d("indexIterable: $indexIterable")
+                    indexIterable.forEach { index ->
+                        val accessCode = lockAccessUseCase.getAccessCode(index)
+                        if(accessCode.type == 0) {
+                            lastCodeIndex = index
                             showLog("$functionName[$index] is access code: $accessCode")
                         }
                     }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if (result.accessCodeQuantity.isSupport2Byte()) {
-                            val list = lockAccessUseCase.getAccessCodeArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
-                            Timber.d("indexIterable: $indexIterable")
-                            indexIterable
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName array exception $e") }
-                    .map { indexIterable ->
-                        indexIterable.forEach { index ->
-                            val accessCode = lockAccessUseCase.getAccessCode(index)
-                            if(accessCode.type == 0) {
-                                showLog("$functionName[$index] is access code: $accessCode")
-                            }
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2279,46 +1748,32 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addAccessCode(code:String = "1234", index:Int = lastCodeCardIndex + 1) {
-        val functionName = ::addAccessCode.name
+    private suspend fun addAccessCode(code: String = getRandomCode(), index:Int = lastCodeCardIndex + 1) {
+        val functionName = "addAccessCode"
         val isEnabled = true
         val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(lockAccessCodeUseCase.addAccessCode(index, isEnabled, name, code, scheduleType)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nresult: $result")
-                        if(result){
-                            lastCodeIndex += 1
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockAccessCodeUseCase.addAccessCode(index, isEnabled, name, code, scheduleType)
+                showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nresult: $result")
+                if(result){
+                    lastCodeIndex = index
+                    lastCodeCardIndex = index
+                }
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.accessCodeQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.addAccessCode(index, isEnabled, scheduleType, name, code)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                            if(isSuccess){
-                                lastCodeIndex = index
-                                lastCodeCardIndex += 1
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCodeQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.addAccessCode(index, isEnabled, scheduleType, name, code)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                    if(isSuccess){
+                        lastCodeIndex = index
+                        lastCodeCardIndex = index
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 var userIndex = lastUserIndex
@@ -2327,32 +1782,22 @@ class HomeViewModel @Inject constructor(
                     getUserAbility()
                     return
                 }
-                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if (userAbility!!.codeCredentialCount.isSupport()) {
-                            if (userAbility!!.codeCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.PIN.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
-                                userIndex += 1
-                            }
-                            lockCredentialUseCase.addCredentialCode(index, userIndex, code)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val credentialResult = lockCredentialUseCase.getCredentialByUser(lastUserIndex)
+                if (userAbility!!.codeCredentialCount.isSupport()) {
+                    if (userAbility!!.codeCredentialCount == (credentialResult.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.PIN.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                        userIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex code: $code\nresult: $result")
-                        if(result){
-                            lastCodeIndex = index
-                            lastCodeCardIndex += 1
-                            lastCredentialIndex += 1
-                        }
+                    val result = lockCredentialUseCase.addCredentialCode(index, userIndex, code)
+                    showLog("$functionName index: $index userIndex: $userIndex code: $code\nresult: $result")
+                    if(result){
+                        lastUserIndex = userIndex
+                        lastCodeIndex = index
+                        lastCodeCardIndex = index
+                        lastCredentialIndex = index
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2360,52 +1805,29 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editAccessCode(code:String = "2345", index:Int = lastCodeIndex) {
-        val functionName = ::editAccessCode.name
+    private suspend fun editAccessCode(code: String = getRandomCode(), index:Int = lastCodeCardIndex) {
+        val functionName = "editAccessCode"
         val isEnabled = true
         val name = "User $lastCodeCardIndex ed"
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(lockAccessCodeUseCase.editAccessCode(index, isEnabled, name, code, scheduleType)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nresult: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockAccessCodeUseCase.editAccessCode(index, isEnabled, name, code, scheduleType)
+                showLog("$functionName: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nresult: $result")
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.accessCodeQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.editAccessCode(index, isEnabled, scheduleType, name, code)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCodeQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.editAccessCode(index, isEnabled, scheduleType, name, code)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: $code scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 val userIndex = lastUserIndex
-                flow { emit(lockCredentialUseCase.editCredentialCode(index, userIndex, code)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex code: $code\nresult: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.editCredentialCode(index, userIndex, code)
+                showLog("$functionName index: $index userIndex: $userIndex code: $code\nresult: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2413,60 +1835,38 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deleteAccessCode(index: Int) {
-        val functionName = ::deleteAccessCode.name
+    private suspend fun deleteAccessCode(index: Int = lastCodeCardIndex) {
+        val functionName = "deleteAccessCode"
         when(_currentDeviceStatus) {
             is DeviceStatus.D6 -> {
-                flow { emit(lockAccessCodeUseCase.deleteAccessCode(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName[$index]\nresult: $result")
-                        if(result){
-                            lastCodeIndex -= 1
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockAccessCodeUseCase.deleteAccessCode(index)
+                showLog("$functionName[$index]\nresult: $result")
+                if(result){
+                    lastCodeIndex -= 1
+                    lastCodeCardIndex -= 1
+                }
             }
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.accessCodeQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deleteAccessCode(index)
-                            showLog("$functionName[$index]\nisSuccess: $isSuccess")
-                            if(isSuccess){
-                                lastCodeCardIndex -= 1
-                                lastCodeIndex -= 1
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCodeQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.deleteAccessCode(index)
+                    showLog("$functionName[$index]\nisSuccess: $isSuccess")
+                    if(isSuccess){
+                        lastCodeIndex -= 1
+                        lastCodeCardIndex -= 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index result: $result")
-                        if(result){
-                            lastCodeCardIndex -= 1
-                            lastCredentialIndex -= 1
-                            lastCodeIndex -= 1
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deleteCredential(index)
+                showLog("$functionName index: $index result: $result")
+                if(result){
+                    lastCodeIndex -= 1
+                    lastCodeCardIndex -= 1
+                    lastCredentialIndex -= 1
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2474,30 +1874,22 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getAccessCardArray(){
-        val functionName = ::getAccessCardArray.name
+    private suspend fun getAccessCardArray(){
+        val functionName = "getAccessCardArray"
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if(result.accessCardQuantity.isSupport2Byte()) {
-                            val accessCardArray = lockAccessUseCase.getAccessCardArray()
-                            accessCardArray.forEachIndexed { index, value ->
-                                if (value) {
-                                    lastCodeCardIndex = index
-                                }
-                            }
-                            showLog("$functionName: $accessCardArray")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCardQuantity.isSupport2Byte()) {
+                    val accessCardArray = lockAccessUseCase.getAccessCardArray()
+                    accessCardArray.forEachIndexed { index, value ->
+                        if (value) {
+                            lastCodeCardIndex = index
                         }
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                    showLog("$functionName: $accessCardArray")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2505,37 +1897,25 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getAccessCard(){
-        val functionName = ::getAccessCard.name
+    private suspend fun getAccessCard(){
+        val functionName = "getAccessCard"
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if (result.accessCardQuantity.isSupport2Byte()) {
-                            val list = lockAccessUseCase.getAccessCardArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
-                            Timber.d("indexIterable: $indexIterable")
-                            indexIterable
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if (result.accessCardQuantity.isSupport2Byte()) {
+                    val list = lockAccessUseCase.getAccessCardArray()
+                    val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
+                    Timber.d("indexIterable: $indexIterable")
+                    indexIterable.forEach { index ->
+                        val accessCard = lockAccessUseCase.getAccessCard(index)
+                        if(accessCard.type == 1) {
+                            lastCardIndex = index
+                            showLog("$functionName[$index] is access card: $accessCard")
                         }
                     }
-                    .catch { e -> showLog("$functionName array exception $e") }
-                    .map{ indexIterable ->
-                        indexIterable.forEach { index ->
-                            val accessCard = lockAccessUseCase.getAccessCard(index)
-                            if(accessCard.type == 1) {
-                                lastCardIndex = index
-                                showLog("$functionName[$index] is access card: $accessCard")
-                            }
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2543,33 +1923,25 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addAccessCard(index:Int = lastCodeCardIndex + 1) {
-        val functionName = ::addAccessCard.name
+    private suspend fun addAccessCard(index:Int = lastCodeCardIndex + 1) {
+        val functionName = "addAccessCard"
         val isEnabled = true
         val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if(result.accessCardQuantity.isSupport2Byte()) {
-                            val code = currentAccessA9Data.value.data
-                            val isSuccess = lockAccessUseCase.addAccessCard(index, isEnabled, scheduleType, name, code)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: ${code.accessByteArrayToString()} scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                            if(isSuccess){
-                                lastCodeCardIndex += 1
-                                lastCardIndex = index
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCardQuantity.isSupport2Byte()) {
+                    val code = currentAccessA9Data.value.data
+                    val isSuccess = lockAccessUseCase.addAccessCard(index, isEnabled, scheduleType, name, code)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: ${code.accessByteArrayToString()} scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                    if(isSuccess){
+                        lastCodeCardIndex = index
+                        lastCardIndex = index
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 var userIndex = lastUserIndex
@@ -2578,33 +1950,23 @@ class HomeViewModel @Inject constructor(
                     getUserAbility()
                     return
                 }
-                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if (userAbility!!.cardCredentialCount.isSupport()) {
-                            val code = currentCredential97Data.value.data
-                            if (userAbility!!.cardCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.RFID.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
-                                userIndex += 1
-                            }
-                            lockCredentialUseCase.addCredentialCard(index, userIndex, code)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val credentialResult = lockCredentialUseCase.getCredentialByUser(lastUserIndex)
+                if (userAbility!!.cardCredentialCount.isSupport()) {
+                    val code = currentCredential97Data.value.data
+                    if (userAbility!!.cardCredentialCount == (credentialResult.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.RFID.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                        userIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex code: ${currentCredential97Data.value.data.accessByteArrayToString()}\nresult: $result")
-                        if(result){
-                            lastCodeCardIndex += 1
-                            lastCredentialIndex += 1
-                            lastCardIndex = index
-                        }
+                    val result = lockCredentialUseCase.addCredentialCard(index, userIndex, code)
+                    showLog("$functionName index: $index userIndex: $userIndex code: ${currentCredential97Data.value.data.accessByteArrayToString()}\nresult: $result")
+                    if(result){
+                        lastUserIndex = userIndex
+                        lastCodeCardIndex = index
+                        lastCredentialIndex = index
+                        lastCardIndex = index
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2612,43 +1974,27 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editAccessCard(index: Int = lastCardIndex) {
-        val functionName = ::editAccessCard.name
+    private suspend fun editAccessCard(index: Int = lastCodeCardIndex) {
+        val functionName = "editAccessCard"
         val isEnabled = true
         val name = "User $lastCodeCardIndex ed"
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.accessCardQuantity.isSupport2Byte()) {
-                            val code = currentAccessA9Data.value.data
-                            val isSuccess = lockAccessUseCase.editAccessCard(index, isEnabled, scheduleType, name, code)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: ${code.accessByteArrayToString()} scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCardQuantity.isSupport2Byte()) {
+                    val code = currentAccessA9Data.value.data
+                    val isSuccess = lockAccessUseCase.editAccessCard(index, isEnabled, scheduleType, name, code)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name code: ${code.accessByteArrayToString()} scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 val userIndex = lastUserIndex
                 val code = currentCredential97Data.value.data
-                flow { emit(lockCredentialUseCase.editCredentialCard(index, userIndex, code)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex code: ${code.accessByteArrayToString()}\nresult: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.editCredentialCard(index, userIndex, code)
+                showLog("$functionName index: $index userIndex: $userIndex code: ${code.accessByteArrayToString()}\nresult: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2656,46 +2002,30 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deleteAccessCard(index: Int) {
-        val functionName = ::deleteAccessCard.name
+    private suspend fun deleteAccessCard(index: Int = lastCodeCardIndex) {
+        val functionName = "deleteAccessCard"
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.accessCardQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deleteAccessCard(index)
-                            showLog("$functionName[$index]\nisSuccess: $isSuccess")
-                            if(isSuccess){
-                                lastCodeCardIndex -= 1
-                                lastCardIndex -= 1
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCardQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.deleteAccessCard(index)
+                    showLog("$functionName[$index]\nisSuccess: $isSuccess")
+                    if(isSuccess){
+                        lastCodeCardIndex -= 1
+                        lastCardIndex -= 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index result: $result")
-                        if(result){
-                            lastCodeCardIndex -= 1
-                            lastCredentialIndex -= 1
-                            lastCardIndex -= 1
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deleteCredential(index)
+                showLog("$functionName index: $index result: $result")
+                if(result){
+                    lastCodeCardIndex -= 1
+                    lastCredentialIndex -= 1
+                    lastCardIndex -= 1
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2703,38 +2033,22 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deviceGetAccessCard(){
+    private suspend fun deviceGetAccessCard(){
         val functionName = ::deviceGetAccessCard.name
         val index = lastCodeCardIndex + 2
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.accessCardQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deviceGetAccessCard(index)
-                            showLog("$functionName: $isSuccess")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.accessCardQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.deviceGetAccessCard(index)
+                    showLog("$functionName: $isSuccess")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deviceGetCredentialCard(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deviceGetCredentialCard(index)
+                showLog("$functionName: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2742,30 +2056,22 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getFingerprintArray(){
-        val functionName = ::getFingerprintArray.name
+    private suspend fun getFingerprintArray(){
+        val functionName = "getFingerprintArray"
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.fingerprintQuantity.isSupport2Byte()) {
-                            val fingerprintArray = lockAccessUseCase.getFingerprintArray()
-                            fingerprintArray.forEachIndexed { index, value ->
-                                if (value) {
-                                    lastFingerprintIndex = index
-                                }
-                            }
-                            showLog("$functionName: $fingerprintArray")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.fingerprintQuantity.isSupport2Byte()) {
+                    val fingerprintArray = lockAccessUseCase.getFingerprintArray()
+                    fingerprintArray.forEachIndexed { index, value ->
+                        if (value) {
+                            lastFingerprintIndex = index
                         }
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                    showLog("$functionName: $fingerprintArray")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2773,36 +2079,24 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getFingerprint(){
-        val functionName = ::getFingerprint.name
+    private suspend fun getFingerprint(){
+        val functionName = "getFingerprint"
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.fingerprintQuantity.isSupport2Byte()) {
-                            val list = lockAccessUseCase.getFingerprintArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
-                            Timber.d("indexIterable: $indexIterable")
-                            indexIterable
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.fingerprintQuantity.isSupport2Byte()) {
+                    val list = lockAccessUseCase.getFingerprintArray()
+                    val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
+                    Timber.d("indexIterable: $indexIterable")
+                    indexIterable.forEach { index ->
+                        val fingerprint = lockAccessUseCase.getFingerprint(index)
+                        if(fingerprint.type == 2) {
+                            showLog("$functionName[$index] is Fingerprint: $fingerprint")
                         }
                     }
-                    .catch { e -> showLog("$functionName array exception $e") }
-                    .map { indexIterable ->
-                        indexIterable.forEach { index ->
-                            val fingerprint = lockAccessUseCase.getFingerprint(index)
-                            if(fingerprint.type == 2) {
-                                showLog("$functionName[$index] is Fingerprint: $fingerprint")
-                            }
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2810,31 +2104,23 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addFingerprint(index:Int = lastFingerprintIndex + 1) {
-        val functionName = ::addFingerprint.name
+    private suspend fun addFingerprint(index:Int = lastFingerprintIndex + 1) {
+        val functionName = "addFingerprint"
         val isEnabled = true
         val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.fingerprintQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                            if(isSuccess){
-                                lastFingerprintIndex += 1
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.fingerprintQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.addFingerprint(index, isEnabled, scheduleType, name)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                    if(isSuccess){
+                        lastFingerprintIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 var userIndex = lastUserIndex
@@ -2843,31 +2129,20 @@ class HomeViewModel @Inject constructor(
                     getUserAbility()
                     return
                 }
-                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if (userAbility!!.fpCredentialCount.isSupport()) {
-                            if (userAbility!!.fpCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FINGERPRINT.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
-                                userIndex += 1
-                            }
-                            lockCredentialUseCase.addCredentialFingerPrint(index, userIndex, currentCredential97Data.value.index)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val credentialResult = lockCredentialUseCase.getCredentialByUser(lastUserIndex)
+                if (userAbility!!.fpCredentialCount.isSupport()) {
+                    if (userAbility!!.fpCredentialCount == (credentialResult.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FINGERPRINT.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                        userIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
-                        if(result){
-                            lastFingerprintIndex += 1
-                            lastCredentialIndex += 1
-                        }
+                    val result = lockCredentialUseCase.addCredentialFingerPrint(index, userIndex, currentCredential97Data.value.index)
+                    showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
+                    if(result){
+                        lastFingerprintIndex += 1
+                        lastCredentialIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2875,41 +2150,25 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editFingerprint(index:Int = lastFingerprintIndex) {
-        val functionName = ::editFingerprint.name
+    private suspend fun editFingerprint(index:Int = lastFingerprintIndex) {
+        val functionName = "editFingerprint"
         val isEnabled = true
         val name = "User $index ed"
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.fingerprintQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.fingerprintQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.editFingerprint(index, isEnabled, scheduleType, name)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 val userIndex = lastUserIndex
-                flow { emit(lockCredentialUseCase.editCredentialFingerPrint(index, userIndex, currentCredential97Data.value.index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.editCredentialFingerPrint(index, userIndex, currentCredential97Data.value.index)
+                showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2917,44 +2176,28 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deleteFingerprint(index: Int) {
-        val functionName = ::deleteFingerprint.name
+    private suspend fun deleteFingerprint(index: Int = lastFingerprintIndex) {
+        val functionName = "deleteFingerprint"
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.fingerprintQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deleteFingerprint(index)
-                            showLog("$functionName[$index]\nisSuccess: $isSuccess")
-                            if(isSuccess){
-                                lastFingerprintIndex -= 1
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.fingerprintQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.deleteFingerprint(index)
+                    showLog("$functionName[$index]\nisSuccess: $isSuccess")
+                    if(isSuccess){
+                        lastFingerprintIndex -= 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if(result){
-                            lastFingerprintIndex -= 1
-                            lastCredentialIndex -= 1
-                        }
-                        showLog("$functionName index: $index result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deleteCredential(index)
+                if(result){
+                    lastFingerprintIndex -= 1
+                    lastCredentialIndex -= 1
+                }
+                showLog("$functionName index: $index result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -2962,38 +2205,22 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deviceGetFingerprint(){
-        val functionName = ::deviceGetFingerprint.name
+    private suspend fun deviceGetFingerprint(){
+        val functionName = "deviceGetFingerprint"
         val index = lastFingerprintIndex + 2
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.fingerprintQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deviceGetFingerprint(index)
-                            showLog("$functionName: $isSuccess")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.fingerprintQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.deviceGetFingerprint(index)
+                    showLog("$functionName: $isSuccess")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deviceGetCredentialFingerprint(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deviceGetCredentialFingerprint(index)
+                showLog("$functionName: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3001,30 +2228,22 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getFaceArray(){
-        val functionName = ::getFaceArray.name
+    private suspend fun getFaceArray(){
+        val functionName = "getFaceArray"
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.faceQuantity.isSupport2Byte()) {
-                            val faceArray = lockAccessUseCase.getFaceArray()
-                            faceArray.forEachIndexed { index, value ->
-                                if (value) {
-                                    lastFaceIndex = index
-                                }
-                            }
-                            showLog("$functionName: $faceArray")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.faceQuantity.isSupport2Byte()) {
+                    val faceArray = lockAccessUseCase.getFaceArray()
+                    faceArray.forEachIndexed { index, value ->
+                        if (value) {
+                            lastFaceIndex = index
                         }
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                    showLog("$functionName: $faceArray")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3032,36 +2251,24 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getFace(){
-        val functionName = ::getFace.name
+    private suspend fun getFace(){
+        val functionName = "getFace"
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if (result.faceQuantity.isSupport2Byte()) {
-                            val list = lockAccessUseCase.getFaceArray()
-                            val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
-                            Timber.d("indexIterable: $indexIterable")
-                            indexIterable
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if (result.faceQuantity.isSupport2Byte()) {
+                    val list = lockAccessUseCase.getFaceArray()
+                    val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean) index else null }
+                    Timber.d("indexIterable: $indexIterable")
+                    indexIterable.forEach { index ->
+                        val getFace = lockAccessUseCase.getFace(index)
+                        if (getFace.type == 3) {
+                            showLog("$functionName[$index] is face: $getFace")
                         }
                     }
-                    .catch { e -> showLog("$functionName array exception $e") }
-                    .map { indexIterable ->
-                        indexIterable.forEach { index ->
-                            val getFace = lockAccessUseCase.getFace(index)
-                            if (getFace.type == 3) {
-                                showLog("$functionName[$index] is face: $getFace")
-                            }
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3069,31 +2276,23 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addFace(index:Int = lastFaceIndex + 1) {
-        val functionName = ::addFace.name
+    private suspend fun addFace(index:Int = lastFaceIndex + 1) {
+        val functionName = "addFace"
         val isEnabled = true
         val name = "User $index"
         val scheduleType: AccessScheduleType = AccessScheduleType.All
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.faceQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.addFace(index, isEnabled, scheduleType, name)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                            if(isSuccess) {
-                                lastFaceIndex += 1
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.faceQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.addFace(index, isEnabled, scheduleType, name)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                    if(isSuccess) {
+                        lastFaceIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 var userIndex = lastUserIndex
@@ -3102,31 +2301,20 @@ class HomeViewModel @Inject constructor(
                     getUserAbility()
                     return
                 }
-                flow { emit(lockCredentialUseCase.getCredentialByUser(lastUserIndex)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        if (userAbility!!.faceCredentialCount.isSupport()) {
-                            if (userAbility!!.faceCredentialCount == (result.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FACE.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
-                                userIndex += 1
-                            }
-                            lockCredentialUseCase.addCredentialFace(index, userIndex, currentCredential97Data.value.index)
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val credentialResult = lockCredentialUseCase.getCredentialByUser(lastUserIndex)
+                if (userAbility!!.faceCredentialCount.isSupport()) {
+                    if (userAbility!!.faceCredentialCount == (credentialResult.credentialDetail?.filter { it.type == BleV3Lock.CredentialType.FACE.value && it.status != BleV3Lock.UserStatus.AVAILABLE.value }?.size ?: 0)) {
+                        userIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
-                        if(result){
-                            lastFaceIndex += 1
-                            lastCredentialIndex += 1
-                        }
+                    val result = lockCredentialUseCase.addCredentialFace(index, userIndex, currentCredential97Data.value.index)
+                    showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
+                    if(result){
+                        lastFaceIndex += 1
+                        lastCredentialIndex += 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3134,41 +2322,25 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editFace(index:Int = lastFaceIndex) {
-        val functionName = ::editFace.name
+    private suspend fun editFace(index:Int = lastFaceIndex) {
+        val functionName = "editFace"
         val isEnabled = true
         val name = "User $index ed"
         val scheduleType: AccessScheduleType = AccessScheduleType.SingleEntry
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.faceQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.editFace(index, isEnabled, scheduleType, name)
-                            showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.faceQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.editFace(index, isEnabled, scheduleType, name)
+                    showLog("$functionName index: $index isEnabled: $isEnabled name: $name scheduleType: $scheduleType\nisSuccess: $isSuccess")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
                 val userIndex = lastUserIndex
-                flow { emit(lockCredentialUseCase.editCredentialFace(index, userIndex, currentCredential97Data.value.index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.editCredentialFace(index, userIndex, currentCredential97Data.value.index)
+                showLog("$functionName index: $index userIndex: $userIndex\nresult: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3176,44 +2348,28 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deleteFace(index: Int) {
-        val functionName = ::deleteFace.name
+    private suspend fun deleteFace(index: Int = lastFaceIndex) {
+        val functionName = "deleteFace"
         when(_currentDeviceStatus) {
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.faceQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deleteFace(index)
-                            showLog("$functionName[$index]\nisSuccess: $isSuccess")
-                            if(isSuccess){
-                                lastFaceIndex -= 1
-                            }
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.faceQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.deleteFace(index)
+                    showLog("$functionName[$index]\nisSuccess: $isSuccess")
+                    if(isSuccess){
+                        lastFaceIndex -= 1
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deleteCredential(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName index: $index result: $result")
-                        if(result){
-                            lastFaceIndex -= 1
-                            lastCredentialIndex -= 1
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deleteCredential(index)
+                showLog("$functionName index: $index result: $result")
+                if(result){
+                    lastFaceIndex -= 1
+                    lastCredentialIndex -= 1
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3221,38 +2377,22 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deviceGetFace(){
-        val functionName = ::deviceGetFace.name
+    private suspend fun deviceGetFace(){
+        val functionName = "deviceGetFace"
         val index = lastFaceIndex + 2
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("getLockSupportedUnlockTypes exception $e") }
-                    .map { result ->
-                        if(result.faceQuantity.isSupport2Byte()) {
-                            val isSuccess = lockAccessUseCase.deviceGetFace(index)
-                            showLog("$functionName: $isSuccess")
-                        } else {
-                            throw LockStatusException.LockFunctionNotSupportException()
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                if(result.faceQuantity.isSupport2Byte()) {
+                    val isSuccess = lockAccessUseCase.deviceGetFace(index)
+                    showLog("$functionName: $isSuccess")
+                } else {
+                    throw LockStatusException.LockFunctionNotSupportException()
+                }
             }
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.deviceGetCredentialFace(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deviceGetCredentialFace(index)
+                showLog("$functionName: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3260,133 +2400,75 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deviceExitAccess(accessType: Int, index:Int) {
-        val functionName = ::deviceExitAccess.name
+    private suspend fun deviceExitAccess(accessType: Int, index:Int) {
+        val functionName = "deviceExitAccess"
         when(accessType){
             Access.Type.CARD.value -> {
-                flow { emit(lockAccessUseCase.deviceExitAccessCard(index)) }
-                    .map { result ->
-                        Timber.d("$functionName: $result\n")
-                    }
-                    .catch { e -> Timber.e("$functionName: exception $e") }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
-            }
-            Access.Type.FINGERPRINT.value-> {
-                flow { emit(lockAccessUseCase.deviceExitFingerprint(index)) }
-                    .map { result ->
-                        Timber.d("$functionName: $result\n")
-                    }
-                    .catch { e -> Timber.e("$functionName: exception $e") }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockAccessUseCase.deviceExitAccessCard(index)
+                Timber.d("$functionName: $result\n")
             }
             Access.Type.FINGERPRINT.value -> {
-                flow { emit(lockAccessUseCase.deviceExitFace(index)) }
-                    .map { result ->
-                        Timber.d("$functionName: $result\n")
-                    }
-                    .catch { e -> Timber.e("$functionName: exception $e") }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockAccessUseCase.deviceExitFingerprint(index)
+                Timber.d("$functionName: $result\n")
+            }
+            Access.Type.FINGERPRINT.value -> {
+                val result = lockAccessUseCase.deviceExitFace(index)
+                Timber.d("$functionName: $result\n")
             }
         }
     }
 
-    private fun deviceExitCredential(accessType: Int, index:Int) {
-        val functionName = ::deviceExitCredential.name
+    private suspend fun deviceExitCredential(accessType: Int, index:Int) {
+        val functionName = "deviceExitCredential"
         when(accessType){
             BleV3Lock.CredentialType.RFID.value -> {
-                flow { emit(lockCredentialUseCase.deviceExitCredentialCard(index)) }
-                    .map { result ->
-                        Timber.d("$functionName: $result\n")
-                    }
-                    .catch { e -> Timber.e("$functionName: exception $e") }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deviceExitCredentialCard(index)
+                Timber.d("$functionName: $result\n")
             }
             BleV3Lock.CredentialType.FINGERPRINT.value-> {
-                flow { emit(lockCredentialUseCase.deviceExitCredentialFingerprint(index)) }
-                    .map { result ->
-                        Timber.d("$functionName: $result\n")
-                    }
-                    .catch { e -> Timber.e("$functionName: exception $e") }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deviceExitCredentialFingerprint(index)
+                Timber.d("$functionName: $result\n")
             }
             BleV3Lock.CredentialType.FACE.value -> {
-                flow { emit(lockCredentialUseCase.deviceExitCredentialFace(index)) }
-                    .map { result ->
-                        Timber.d("$functionName: $result\n")
-                    }
-                    .catch { e -> Timber.e("$functionName: exception $e") }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.deviceExitCredentialFace(index)
+                Timber.d("$functionName: $result\n")
             }
         }
     }
 
-    private fun getEventQuantity(){
-        val functionName = ::getEventQuantity.name
-        flow { emit(lockEventLogUseCase.getEventQuantity()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName result: $result")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun getEventQuantity(){
+        val functionName = "getEventQuantity"
+        val result = lockEventLogUseCase.getEventQuantity()
+        showLog("$functionName result: $result")
     }
 
-    private fun getEvent(){
-        val functionName = ::getEvent.name
-        flow { emit(lockEventLogUseCase.getEventQuantity()) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                for(index in 0 until result){
-                    val eventLog = lockEventLogUseCase.getEvent(index)
-                    lastEventLogIndex = index
-                    showLog("$functionName index[$index]\neventLog: $eventLog")
-                }
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun getEvent(){
+        val functionName = "getEvent"
+        val result = lockEventLogUseCase.getEventQuantity()
+        for(index in 0 until result){
+            val eventLog = lockEventLogUseCase.getEvent(index)
+            lastEventLogIndex = index
+            showLog("$functionName index[$index]\neventLog: $eventLog")
+        }
     }
 
-    private fun deleteEvent(index: Int){
-        val functionName = ::deleteEvent.name
-        flow { emit(lockEventLogUseCase.deleteEvent(index)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                if(result){
-                    lastEventLogIndex -= 1
-                }
-                showLog("$functionName index[$index]\nresult: $result")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun deleteEvent(index: Int = lastEventLogIndex){
+        val functionName = "deleteEvent"
+        val result = lockEventLogUseCase.deleteEvent(index)
+        if(result){
+            lastEventLogIndex -= 1
+        }
+        showLog("$functionName index[$index]\nresult: $result")
     }
 
-    private fun getLockSupportedUnlockTypes() {
-        val functionName = ::getLockSupportedUnlockTypes.name
+    private suspend fun getLockSupportedUnlockTypes() {
+        val functionName = "getLockSupportedUnlockTypes"
         when(_currentDeviceStatus){
             is DeviceStatus.A2 -> {
-                flow { emit(lockUtilityUseCase.getLockSupportedUnlockTypes()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                        // filter not support function
-                        setSupportTaskList(supportedUnlockType = result)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUtilityUseCase.getLockSupportedUnlockTypes()
+                showLog("$functionName result: $result")
+                // filter not support function
+                setSupportTaskList(supportedUnlockType = result)
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3394,22 +2476,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getUserAbility() {
-        val functionName = ::getUserAbility.name
+    private suspend fun getUserAbility() {
+        val functionName = "getUserAbility"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getUserAbility()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                        userAbility = result
-                        // filter not support function
-                        setSupportTaskList(userAbility = result)
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUserUseCase.getUserAbility()
+                showLog("$functionName result: $result")
+                userAbility = result
+                // filter not support function
+                setSupportTaskList(userAbility = result)
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3417,19 +2492,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getUserCount() {
-        val functionName = ::getUserCount.name
+    private suspend fun getUserCount() {
+        val functionName = "getUserCount"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getUserCount()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUserUseCase.getUserCount()
+                showLog("$functionName result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3437,19 +2505,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun isMatterDevice() {
-        val functionName = ::isMatterDevice.name
+    private suspend fun isMatterDevice() {
+        val functionName = "isMatterDevice"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.isMatterDevice()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUserUseCase.isMatterDevice()
+                showLog("$functionName result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3457,24 +2518,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getUserArray() {
-        val functionName = ::getUserArray.name
+    private suspend fun getUserArray() {
+        val functionName = "getUserArray"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getUserArray()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        result.forEachIndexed { index, value ->
-                            if (value) {
-                                lastUserIndex = index
-                            }
-                        }
-                        showLog("$functionName result: $result")
+                val result = lockUserUseCase.getUserArray()
+                result.forEachIndexed { index, value ->
+                    if (value) {
+                        lastUserIndex = index
                     }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                }
+                showLog("$functionName result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3482,25 +2536,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getUser() {
-        val functionName = ::getUser.name
+    private suspend fun getUser() {
+        val functionName = "getUser"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.getUserArray()) }
-                    .catch { e -> showLog("$functionName array exception $e") }
-                    .map { list ->
-                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
-                        Timber.d("indexIterable: $indexIterable")
-                        indexIterable.forEach { index ->
-                            val user = lockUserUseCase.getUser(index)
-                            showLog("$functionName[$index] result: $user")
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val list = lockUserUseCase.getUserArray()
+                val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                Timber.d("indexIterable: $indexIterable")
+                indexIterable.forEach { index ->
+                    val user = lockUserUseCase.getUser(index)
+                    showLog("$functionName[$index] result: $user")
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3508,8 +2554,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun addUser(index:Int = lastUserIndex + 1) {
-        val functionName = ::addUser.name
+    private suspend fun addUser(index:Int = lastUserIndex + 1) {
+        val functionName = "addUser"
         val name = "User $index"
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
         val userType = BleV3Lock.UserType.UNRESTRICTED.value
@@ -3539,19 +2585,11 @@ class HomeViewModel @Inject constructor(
         }
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.addUser(index, name, userStatus, userType, credentialRule, weekDaySchedule, yearDaySchedule)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName name: $name index: $index userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
-                        if(result){
-                            lastUserIndex += 1
-                        }
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUserUseCase.addUser(index, name, userStatus, userType, credentialRule, weekDaySchedule, yearDaySchedule)
+                showLog("$functionName name: $name index: $index userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
+                if(result){
+                    lastUserIndex = index
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3559,8 +2597,8 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun editUser(index:Int = lastUserIndex) {
-        val functionName = ::editUser.name
+    private suspend fun editUser(index:Int = lastUserIndex) {
+        val functionName = "editUser"
         val name = "User $index ed"
         val userStatus = BleV3Lock.UserStatus.OCCUPIED_ENABLED.value
         val userType = BleV3Lock.UserType.DISPOSABLE.value
@@ -3591,16 +2629,8 @@ class HomeViewModel @Inject constructor(
 
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.editUser(index, name, userStatus, userType, credentialRule, weekDaySchedule, yearDaySchedule)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName name: $name index: $index userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUserUseCase.editUser(index, name, userStatus, userType, credentialRule, weekDaySchedule, yearDaySchedule)
+                showLog("$functionName name: $name index: $index userStatus: $userStatus userType: $userType credentialRule: $credentialRule weekDaySchedule: $weekDaySchedule yearDaySchedule: $yearDaySchedule\nresult: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3608,22 +2638,15 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun deleteUser(index: Int){
-        val functionName = ::deleteUser.name
+    private suspend fun deleteUser(index: Int = lastUserIndex){
+        val functionName = "deleteUser"
         when(_currentDeviceStatus) {
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockUserUseCase.deleteUser(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map{ result ->
-                        showLog("$functionName result: $result")
-                        if(result){
-                            lastUserIndex -= 1
-                        }
-                    }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockUserUseCase.deleteUser(index)
+                showLog("$functionName result: $result")
+                if(result){
+                    lastUserIndex -= 1
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3631,24 +2654,17 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getCredentialArray() {
-        val functionName = ::getCredentialArray.name
+    private suspend fun getCredentialArray() {
+        val functionName = "getCredentialArray"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.getCredentialArray()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        result.forEachIndexed { index, value ->
-                            if (value) {
-                                lastCredentialIndex = index
-                            }
-                        }
-                        showLog("$functionName result: $result")
+                val result = lockCredentialUseCase.getCredentialArray()
+                result.forEachIndexed { index, value ->
+                    if (value) {
+                        lastCredentialIndex = index
                     }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                }
+                showLog("$functionName result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3656,40 +2672,31 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getCredential() {
-        val functionName = ::getCredential.name
+    private suspend fun getCredential() {
+        val functionName = "getCredential"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.getCredentialArray()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { list ->
-                        val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
-                        Timber.d("indexIterable: $indexIterable")
-                        indexIterable.forEach { index ->
-                            lastCredentialIndex = index
-                            val credential = lockCredentialUseCase.getCredentialByCredential(index)
-                            showLog("$functionName credential[$index]: $credential")
-                            if(credential.type == BleV3Lock.CredentialType.PIN.value){
-                                lastCodeIndex = index
-                                lastCodeCardIndex = index
-                            }
-                            if(credential.type == BleV3Lock.CredentialType.RFID.value){
-                                lastCardIndex = index
-                                lastCodeCardIndex = index
-                            }
-                            if(credential.type == BleV3Lock.CredentialType.FINGERPRINT.value){
-                                lastFingerprintIndex = index
-                            }
-                            if(credential.type == BleV3Lock.CredentialType.FACE.value){
-                                lastFaceIndex = index
-                            }
-                        }
+                val list = lockCredentialUseCase.getCredentialArray()
+                val indexIterable = list.mapIndexedNotNull { index, boolean -> if (boolean && index != 0) index else null }
+                Timber.d("indexIterable: $indexIterable")
+                indexIterable.forEach { index ->
+                    lastCredentialIndex = index
+                    val credential = lockCredentialUseCase.getCredentialByCredential(index)
+                    showLog("$functionName credential[$index]: $credential")
+                    if(credential.type == BleV3Lock.CredentialType.PIN.value){
+                        lastCodeCardIndex = index
                     }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                    if(credential.type == BleV3Lock.CredentialType.RFID.value){
+                        lastCardIndex = index
+                        lastCodeCardIndex = index
+                    }
+                    if(credential.type == BleV3Lock.CredentialType.FINGERPRINT.value){
+                        lastFingerprintIndex = index
+                    }
+                    if(credential.type == BleV3Lock.CredentialType.FACE.value){
+                        lastFaceIndex = index
+                    }
+                }
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3697,21 +2704,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getCredentialByCredential() {
-        val functionName = ::getCredentialByCredential.name
+    private suspend fun getCredentialByCredential() {
+        val functionName = "getCredentialByCredential"
         val index = lastCredentialIndex
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.getCredentialByCredential(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map {
-                        showLog("$functionName credential[$index] result: $it")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.getCredentialByCredential(index)
+                showLog("$functionName credential[$index] result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3719,21 +2718,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getCredentialByUser() {
-        val functionName = ::getCredentialByUser.name
+    private suspend fun getCredentialByUser() {
+        val functionName = "getCredentialByUser"
         val index = lastUserIndex
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockCredentialUseCase.getCredentialByUser(index)) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map {
-                        showLog("$functionName user[$index] result: $it")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockCredentialUseCase.getCredentialByUser(index)
+                showLog("$functionName user[$index] result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3741,20 +2732,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getUserCredentialHash() {
-        val functionName = ::getUserCredentialHash.name
+    private suspend fun getUserCredentialHash() {
+        val functionName = "getUserCredentialHash"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockDataUseCase.getUserCredentialHash()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockDataUseCase.getUserCredentialHash()
+                showLog("$functionName result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3762,20 +2745,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun getBleUserHash() {
-        val functionName = ::getBleUserHash.name
+    private suspend fun getBleUserHash() {
+        val functionName = "getBleUserHash"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockDataUseCase.getBleUserHash()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockDataUseCase.getBleUserHash()
+                showLog("$functionName result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3783,20 +2758,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun setAllDataSynced() {
-        val functionName = ::setAllDataSynced.name
+    private suspend fun setAllDataSynced() {
+        val functionName = "setAllDataSynced"
         when(_currentDeviceStatus){
             is DeviceStatus.EightTwo -> {
-                flow { emit(lockDataUseCase.setAllDataSynced()) }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .map { result ->
-                        showLog("$functionName result: $result")
-                    }
-                    .catch { e -> showLog("$functionName exception $e") }
-                    .onStart { _uiState.update { it.copy(isLoading = true) } }
-                    .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                    .flowOn(Dispatchers.IO)
-                    .launchIn(viewModelScope)
+                val result = lockDataUseCase.setAllDataSynced()
+                showLog("$functionName result: $result")
             }
             else -> {
                 showLog("$functionName not support.")
@@ -3829,10 +2796,10 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun scanWifi(){
+    private fun scanWifi(): Job{
         val functionName = ::scanWifi.name
-        if (scanWifiJob != null) return
-        scanWifiJob = flow { emit(lockWifiUseCase.scanWifi()) }
+        if (scanWifiJob != null) return Job()
+        val job = flow { emit(lockWifiUseCase.scanWifi()) }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion {
                 delay(10000)
@@ -3847,64 +2814,78 @@ class HomeViewModel @Inject constructor(
             .catch { e -> showLog("$functionName exception $e") }
             .flowOn(Dispatchers.IO)
             .launchIn(viewModelScope)
+        scanWifiJob = job
+        return job
     }
 
-    private fun connectToWifi(ssid: String, password: String){
+    private fun connectToWifi(ssid: String, password: String): Job{
         val functionName = ::connectToWifi.name
-        if (isCollectingConnectToWifiState) return
-        connectToWifiJob?.cancel()
-        connectToWifiJob = lockWifiUseCase
-            .collectConnectToWifiState()
-            .flowOn(Dispatchers.IO)
-            .onStart { isCollectingConnectToWifiState = true }
-            .onCompletion { isCollectingConnectToWifiState = false }
-            .onEach { wifiConnectState ->
-                val progressMessage =
-                    when (wifiConnectState) {
-                        WifiConnectState.ConnectWifiSuccess -> "Wifi connected, connecting to cloud service..."
-                        WifiConnectState.ConnectWifiFail -> "Connect to Wi-Fi failed."
-                        WifiConnectState.ConnectAwsSuccess -> "Cloud service connected, syncing data..."
-                        WifiConnectState.ConnectCloudSuccess -> "Data sync completed, bluetooth connection disconnected."
-                        WifiConnectState.Failed -> "Unknown error."
+        return viewModelScope.launch {
+            if (isCollectingConnectToWifiState) return@launch
+
+            connectToWifiJob?.cancel()
+            val listenerJob = lockWifiUseCase
+                .collectConnectToWifiState()
+                .flowOn(Dispatchers.IO)
+                .onStart { isCollectingConnectToWifiState = true }
+                .onCompletion { isCollectingConnectToWifiState = false }
+                .onEach { wifiConnectState ->
+                    val progressMessage =
+                        when (wifiConnectState) {
+                            WifiConnectState.ConnectWifiSuccess -> "Wifi connected, connecting to cloud service..."
+                            WifiConnectState.ConnectWifiFail -> "Connect to Wi-Fi failed."
+                            WifiConnectState.ConnectAwsSuccess -> "Cloud service connected, syncing data..."
+                            WifiConnectState.ConnectCloudSuccess -> "Data sync completed, bluetooth connection disconnected."
+                            WifiConnectState.Failed -> "Unknown error."
+                        }
+                    showLog(progressMessage)
+
+                    if (wifiConnectState == WifiConnectState.ConnectCloudSuccess) {
+                        isConnectingToWifi = false
+                        isWifiConnected = true
+                        connectToWifiJob?.cancel()
+                        _uiState.update { it.copy(isLoading = false) }
+                    } else if (wifiConnectState == WifiConnectState.ConnectWifiFail) {
+                        isConnectingToWifi = false
+                        isWifiConnected = false
+                        connectToWifiJob?.cancel()
+                        Timber.e("CWifiFail")
+                        showLog("$functionName failed, because not had provisionTicket.")
+                        _uiState.update { it.copy(isLoading = false) }
                     }
-                showLog(progressMessage)
-
-                if (wifiConnectState == WifiConnectState.ConnectCloudSuccess) {
-                    isConnectingToWifi = false
-                    isWifiConnected = true
-                    connectToWifiJob?.cancel()
-                    _uiState.update { it.copy(isLoading = false) }
-                } else if (wifiConnectState == WifiConnectState.ConnectWifiFail) {
-                    Timber.e("CWifiFail")
-                    showLog("$functionName failed, because not had provisionTicket.")
                 }
-            }
-            .catch {
-                Timber.e(it)
-                if (it.message?.contains("Disconnected") == false)
-                    Timber.e("CWifi listener exception $it")
-                showLog("$functionName failed. $it")
-            }
-            .launchIn(viewModelScope)
+                .catch {
+                    Timber.e(it)
+                    if (it.message?.contains("Disconnected") == false)
+                        Timber.e("CWifi listener exception $it")
+                    showLog("$functionName failed. $it")
+                    isConnectingToWifi = false
+                    isWifiConnected = false
+                    connectToWifiJob?.cancel()
+                    _uiState.update { state -> state.copy(isLoading = false) }
+                }
+                .launchIn(this)
 
-        flow { emit(lockWifiUseCase.connectToWifi(ssid, password)) }
-            .flowOn(Dispatchers.IO)
-            .onStart {
-                isConnectingToWifi = true
-                _uiState.update { it.copy(isLoading = true) }
-            }
-            .catch {
-                Timber.e("CWifi sender exception $it")
-                showLog("$functionName failed. $it")
-            }
-            .launchIn(viewModelScope)
+            connectToWifiJob = listenerJob
 
-        viewModelScope.launch(Dispatchers.IO) {
-            delay(120_000)
-            if (isConnectingToWifi) {
-                Timber.e("CWifi timeout")
-                showLog("$functionName failed.")
+            launch(Dispatchers.IO) {
+                flow { emit(lockWifiUseCase.connectToWifi(ssid, password)) }
+                    .onStart {
+                        isConnectingToWifi = true
+                        _uiState.update { it.copy(isLoading = true) }
+                    }
+                    .onEach {
+                        showLog("connect wifi ssid: $ssid password: $password")
+                    }
+                    .catch {
+                        Timber.e("CWifi sender exception $it")
+                        showLog("$functionName failed. $it")
+                    }
+                    .collect()
             }
+
+            // 等待監聽器結束（成功或失敗會呼叫 cancel 或完成）
+            listenerJob.join()
         }
     }
 
@@ -3933,10 +2914,10 @@ class HomeViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    private fun scanWifi3(){
+    private fun scanWifi3(): Job{
         val functionName = ::scanWifi3.name
-        if (scanWifiJob != null) return
-        scanWifiJob = flow { emit(lockWifiUseCase.scanWifi3()) }
+        if (scanWifiJob != null) return Job()
+        val job = flow { emit(lockWifiUseCase.scanWifi3()) }
             .onStart { _uiState.update { it.copy(isLoading = true) } }
             .onCompletion {
                 delay(10000)
@@ -3951,14 +2932,17 @@ class HomeViewModel @Inject constructor(
             .catch { e -> showLog("$functionName exception $e") }
             .flowOn(Dispatchers.IO)
             .launchIn(viewModelScope)
+        scanWifiJob = job
+        return job
     }
 
-    private fun connectToWifi3(ssid: String, password: String){
+    private fun connectToWifi3(ssid: String, password: String): Job{
         val functionName = ::connectToWifi3.name
-        if (isCollectingConnectToWifiState) return
-        connectToWifiJob?.cancel()
-        connectToWifiJob = lockWifiUseCase
-            .collectConnectToWifiState3()
+        return viewModelScope.launch {
+            if (isCollectingConnectToWifiState) return@launch
+
+            connectToWifiJob?.cancel()
+            val listenerJob = lockWifiUseCase.collectConnectToWifiState3()
             .flowOn(Dispatchers.IO)
             .onStart { isCollectingConnectToWifiState = true }
             .onCompletion { isCollectingConnectToWifiState = false }
@@ -3979,8 +2963,12 @@ class HomeViewModel @Inject constructor(
                     connectToWifiJob?.cancel()
                     _uiState.update { it.copy(isLoading = false) }
                 } else if (wifiConnectState == WifiConnectState.ConnectWifiFail) {
+                    isConnectingToWifi = false
+                    isWifiConnected = false
+                    connectToWifiJob?.cancel()
                     Timber.e("CWifiFail")
                     showLog("$functionName failed, because not had provisionTicket.")
+                    _uiState.update { it.copy(isLoading = false) }
                 }
             }
             .catch {
@@ -3988,41 +2976,40 @@ class HomeViewModel @Inject constructor(
                 if (it.message?.contains("Disconnected") == false)
                     Timber.e("CWifi listener exception $it")
                 showLog("$functionName failed. $it")
+                isConnectingToWifi = false
+                isWifiConnected = false
+                connectToWifiJob?.cancel()
+                _uiState.update { state -> state.copy(isLoading = false) }
             }
-            .launchIn(viewModelScope)
+            .launchIn(this)
 
-        flow { emit(lockWifiUseCase.connectToWifi3(ssid, password)) }
-            .flowOn(Dispatchers.IO)
-            .onStart {
-                isConnectingToWifi = true
-                _uiState.update { it.copy(isLoading = true) }
-            }
-            .catch {
-                Timber.e("CWifi sender exception $it")
-                showLog("$functionName failed. $it")
-            }
-            .launchIn(viewModelScope)
+            connectToWifiJob = listenerJob
 
-        viewModelScope.launch(Dispatchers.IO) {
-            delay(120_000)
-            if (isConnectingToWifi) {
-                Timber.e("CWifi timeout")
-                showLog("$functionName failed.")
+            launch(Dispatchers.IO) {
+                flow { emit(lockWifiUseCase.connectToWifi3(ssid, password)) }
+                    .onStart {
+                        isConnectingToWifi = true
+                        _uiState.update { it.copy(isLoading = true) }
+                    }
+                    .onEach {
+                        showLog("connect wifi ssid: $ssid password: $password")
+                    }
+                    .catch {
+                        Timber.e("CWifi sender exception $it")
+                        showLog("$functionName failed. $it")
+                    }
+                    .collect()
             }
+
+            // 等待監聽器結束（成功或失敗會呼叫 cancel 或完成）
+            listenerJob.join()
         }
     }
 
-    private fun setOTACancel(target: Int) {
-        val functionName = ::setOTACancel.name
-        flow { emit(lockOTAUseCase.setOTACancel(target)) }
-            .catch { e -> showLog("$functionName exception $e") }
-            .map { result ->
-                showLog("$functionName result: $result")
-            }
-            .onStart { _uiState.update { it.copy(isLoading = true) } }
-            .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-            .flowOn(Dispatchers.IO)
-            .launchIn(viewModelScope)
+    private suspend fun setOTACancel(target: Int) {
+        val functionName = "setOTACancel"
+        val result = lockOTAUseCase.setOTACancel(target)
+        showLog("$functionName result: $result")
     }
 
     private fun disconnect() {
@@ -4033,8 +3020,6 @@ class HomeViewModel @Inject constructor(
         statefulConnection.disconnect()
         _bleConnectionStateListener?.cancel()
         _bleSunionBleNotificationListener?.cancel()
-        _currentDeviceStatus = DeviceStatus.UNKNOWN
-        _currentSunionBleNotification = SunionBleNotification.UNKNOWN
         isCheckDeviceStatus = false
         isCheckLockConfig = false
         isCheckUnLockType = false
@@ -4058,32 +3043,44 @@ class HomeViewModel @Inject constructor(
         Timber.d("$functionName: $content ${content.isDeviceUuid()}")
 
         viewModelScope.launch {
-            if(content.isDeviceUuid()) {
-                _uiEvent.emit(UiEvent.Complete)
-                currentProductionGetResponse = deviceApiRepository.getProduction(code = content)
-                startBleScan(content, currentProductionGetResponse!!)
-            } else {
-                val qrCodeContent =
-                    runCatching { lockQRCodeUseCase.parseQRCodeContent(BuildConfig.BARCODE_KEY, content) }.getOrNull()
-                        ?: runCatching { lockQRCodeUseCase.parseWifiQRCodeContent(BuildConfig.BARCODE_KEY, content) }.getOrNull()
-
-                if (qrCodeContent == null) {
-                    showLog("Unknown QR-Code.")
+            runWithLoading(functionName) {
+                if (content.isDeviceUuid()) {
                     _uiEvent.emit(UiEvent.Complete)
-                    return@launch
-                }
+                    currentProductionGetResponse = deviceApiRepository.getProduction(code = content)
+                    startBleScan(content, currentProductionGetResponse!!)
+                } else {
+                    val qrCodeContent =
+                        runCatching {
+                            lockQRCodeUseCase.parseQRCodeContent(
+                                BuildConfig.BARCODE_KEY,
+                                content
+                            )
+                        }.getOrNull()
+                            ?: runCatching {
+                                lockQRCodeUseCase.parseWifiQRCodeContent(
+                                    BuildConfig.BARCODE_KEY,
+                                    content
+                                )
+                            }.getOrNull()
 
-                Timber.d("qrCodeContent: $qrCodeContent")
-                _lockConnectionInfo = LockConnectionInfo.from(qrCodeContent)
-                Timber.d("lockConnectionInfo: $lockConnectionInfo")
-                showLog("Lock connection information:", true)
-                showLog("macAddress: ${lockConnectionInfo!!.macAddress}")
-                showLog("oneTimeToken: ${lockConnectionInfo!!.oneTimeToken}")
-                showLog("keyOne: ${lockConnectionInfo!!.keyOne}")
-                showLog("model: ${lockConnectionInfo!!.model}")
-                showLog("Please execute Connect to pair with lock.")
-                _uiEvent.emit(UiEvent.Complete)
-                _uiState.update { it.copy(btnEnabled = true) }
+                    if (qrCodeContent == null) {
+                        showLog("Unknown QR-Code.")
+                        _uiEvent.emit(UiEvent.Complete)
+                        return@runWithLoading
+                    }
+
+                    Timber.d("qrCodeContent: $qrCodeContent")
+                    _lockConnectionInfo = LockConnectionInfo.from(qrCodeContent)
+                    Timber.d("lockConnectionInfo: $lockConnectionInfo")
+                    showLog("Lock connection information:", true)
+                    showLog("macAddress: ${lockConnectionInfo!!.macAddress}")
+                    showLog("oneTimeToken: ${lockConnectionInfo!!.oneTimeToken}")
+                    showLog("keyOne: ${lockConnectionInfo!!.keyOne}")
+                    showLog("model: ${lockConnectionInfo!!.model}")
+                    showLog("Please execute Connect to pair with lock.")
+                    _uiEvent.emit(UiEvent.Complete)
+                    _uiState.update { it.copy(btnEnabled = true) }
+                }
             }
         }
     }
@@ -4226,10 +3223,11 @@ class HomeViewModel @Inject constructor(
         return false
     }
 
-    private fun startBleScan(uuid: String, productionGetResponse: ProductionGetResponse, isReconnect: Boolean = false) {
+    private suspend fun startBleScan(uuid: String, productionGetResponse: ProductionGetResponse, isReconnect: Boolean = false) {
         showLog("Scan and wait for find device...")
-        disposable?.dispose()
-        disposable = bleScanUseCase.scanUuid(uuid = uuid)
+        // 建立一個信號燈，用來控制這段 suspend 程式何時結束
+        val scanTaskSignal = CompletableDeferred<Unit>()
+        val scanDisposable = bleScanUseCase.scanUuid(uuid = uuid)
             .timeout(30, TimeUnit.SECONDS)
             .take(1)
             .subscribe(
@@ -4242,6 +3240,8 @@ class HomeViewModel @Inject constructor(
                     // 處理錯誤
                     Timber.e("Scan error: $throwable")
                     showLog("Ble Scan error: Can't not get lock info with $uuid with 30 seconds timeout.")
+                    // 通知任務失敗並結束
+                    scanTaskSignal.completeExceptionally(throwable)
                 },
                 {
                     // 處理掃描完成事件
@@ -4249,22 +3249,41 @@ class HomeViewModel @Inject constructor(
                     if(productionGetResponse.address.isNullOrBlank() && currentConnectMacAddress.isNullOrBlank()){
                         showLog("Production api or scan ble to get mac address failed.")
                     }
-                    if(isReconnect){
-                        _lockConnectionInfo = lockConnectionInfo!!.copy(macAddress = currentConnectMacAddress!!)
-                        connect()
-                    } else {
-                        _lockConnectionInfo = LockConnectionInfo.from(productionGetResponse, currentConnectMacAddress)
-                        Timber.d("lockConnectionInfo: $lockConnectionInfo")
-                        showLog("Lock connection information:", true)
-                        showLog("macAddress: ${lockConnectionInfo!!.macAddress}")
-                        showLog("oneTimeToken: ${lockConnectionInfo!!.oneTimeToken}")
-                        showLog("keyOne: ${lockConnectionInfo!!.keyOne}")
-                        showLog("model: ${lockConnectionInfo!!.model}")
-                        showLog("Please execute Connect to pair with lock.")
-                        _uiState.update { it.copy(btnEnabled = true) }
+                    viewModelScope.launch {
+                        if (isReconnect) {
+                            _lockConnectionInfo =
+                                lockConnectionInfo!!.copy(macAddress = currentConnectMacAddress!!)
+                            try {
+                                connect() // 這裡會繼續掛起，直到連線成功/失敗
+                                scanTaskSignal.complete(Unit) // 連線成功後，釋放 startBleScan
+                            } catch (e: Exception) {
+                                scanTaskSignal.completeExceptionally(e)
+                            }
+                        } else {
+                            _lockConnectionInfo = LockConnectionInfo.from(
+                                productionGetResponse,
+                                currentConnectMacAddress
+                            )
+                            Timber.d("lockConnectionInfo: $lockConnectionInfo")
+                            showLog("Lock connection information:", true)
+                            showLog("macAddress: ${lockConnectionInfo!!.macAddress}")
+                            showLog("oneTimeToken: ${lockConnectionInfo!!.oneTimeToken}")
+                            showLog("keyOne: ${lockConnectionInfo!!.keyOne}")
+                            showLog("model: ${lockConnectionInfo!!.model}")
+                            showLog("Please execute Connect to pair with lock.")
+                            _uiState.update { it.copy(btnEnabled = true) }
+                            scanTaskSignal.complete(Unit)
+                        }
                     }
                 }
             )
+        try {
+            //直到 scanTaskSignal 被 complete
+            scanTaskSignal.await()
+        } finally {
+            // 如果協程被取消，確保 RxJava 訂閱也被釋放
+            scanDisposable.dispose()
+        }
     }
 
     private fun setModelSupportTaskList(model: String) {
@@ -4289,6 +3308,9 @@ class HomeViewModel @Inject constructor(
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.TogglePlugState }
+                if(model == "TNRFp00" || model == "TNRFp01"){
+                    adminCode = "12345678"
+                }
             }
             "KDW01", "TDW01", "TLRW01" -> {
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
@@ -4643,118 +3665,140 @@ class HomeViewModel @Inject constructor(
         if(content.isNotBlank()) {
             showLog("輸入內容: $content")
         }
-        when(uiState.value.taskCode){
-            BleDeviceFeature.TaskCode.SetLockTime -> {
-                if(longContent != null) {
-                    setLockTime(longContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.SetLockName -> {
-                setLockName(content)
-            }
-            BleDeviceFeature.TaskCode.SetLockTimeZone -> {
-                setLockTimeZone(content)
-            }
-            BleDeviceFeature.TaskCode.ToggleAutoLock -> {
-                if(intContent != null) {
-                    toggleAutoLock(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.CreateAdminCode -> {
-                createAdminCode(content)
-            }
-            BleDeviceFeature.TaskCode.UpdateAdminCode -> {
-                updateAdminCode(adminCode, content)
-            }
-            // Edit Token
-            BleDeviceFeature.TaskCode.EditToken -> {
-                if(intContent != null) {
-                    editToken(intContent, "A", "User $intContent ed")
-                }
-            }
-            BleDeviceFeature.TaskCode.DeleteToken -> {
-                if(intContent != null) {
-                    deleteToken(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.DeleteAccessCode -> {
-                if(intContent != null) {
-                    deleteAccessCode(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.AddAccessCard -> {
-                if(intContent != null) {
-                    addAccessCard(index = intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.EditAccessCard -> {
-                if(intContent != null) {
-                    editAccessCard(index = intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.DeleteAccessCard -> {
-                if(intContent != null) {
-                    deleteAccessCard(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.AddFingerprint -> {
-                if(intContent != null) {
-                    addFingerprint(index = intContent)
-                }
-            }
-            // Edit Fingerprint
-            BleDeviceFeature.TaskCode.EditFingerprint -> {
-                if(intContent != null) {
-                    editFingerprint(index = intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.DeleteFingerprint -> {
-                if(intContent != null) {
-                    deleteFingerprint(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.AddFace -> {
-                if(intContent != null) {
-                    addFace(index = intContent)
-                }
-            }
-            // Edit Fingerprint
-            BleDeviceFeature.TaskCode.EditFace -> {
-                if(intContent != null) {
-                    editFace(index = intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.DeleteFace -> {
-                if(intContent != null) {
-                    deleteFace(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.DeleteEvent -> {
-                if(intContent != null) {
-                    deleteEvent(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.AddUser -> {
-                if(intContent != null) {
-                    addUser(intContent)
-                }
-            }
-            // Edit User
-            BleDeviceFeature.TaskCode.EditUser -> {
-                if(intContent != null) {
-                    editUser(intContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.DeleteUser -> {
-                if(intContent != null) {
-                    deleteUser(intContent)
-                }
-            }
-            else -> {
+        val functionName = "executeTask"
+        viewModelScope.launch {
+            runWithLoading(functionName) {
+                when (uiState.value.taskCode) {
+                    BleDeviceFeature.TaskCode.SetLockTime -> {
+                        if (longContent != null) {
+                            setLockTime(longContent)
+                        }
+                    }
 
+                    BleDeviceFeature.TaskCode.SetLockName -> {
+                        setLockName(content)
+                    }
+
+                    BleDeviceFeature.TaskCode.SetLockTimeZone -> {
+                        setLockTimeZone(content)
+                    }
+
+                    BleDeviceFeature.TaskCode.ToggleAutoLock -> {
+                        if (intContent != null) {
+                            toggleAutoLock(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.CreateAdminCode -> {
+                        createAdminCode(content)
+                    }
+
+                    BleDeviceFeature.TaskCode.UpdateAdminCode -> {
+                        updateAdminCode(adminCode, content)
+                    }
+                    // Edit Token
+                    BleDeviceFeature.TaskCode.EditToken -> {
+                        if (intContent != null) {
+                            editToken(intContent, "A", "User $intContent ed")
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.DeleteToken -> {
+                        if (intContent != null) {
+                            deleteToken(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.DeleteAccessCode -> {
+                        if (intContent != null) {
+                            deleteAccessCode(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.AddAccessCard -> {
+                        if (intContent != null) {
+                            addAccessCard(index = intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.EditAccessCard -> {
+                        if (intContent != null) {
+                            editAccessCard(index = intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.DeleteAccessCard -> {
+                        if (intContent != null) {
+                            deleteAccessCard(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.AddFingerprint -> {
+                        if (intContent != null) {
+                            addFingerprint(index = intContent)
+                        }
+                    }
+                    // Edit Fingerprint
+                    BleDeviceFeature.TaskCode.EditFingerprint -> {
+                        if (intContent != null) {
+                            editFingerprint(index = intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.DeleteFingerprint -> {
+                        if (intContent != null) {
+                            deleteFingerprint(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.AddFace -> {
+                        if (intContent != null) {
+                            addFace(index = intContent)
+                        }
+                    }
+                    // Edit Fingerprint
+                    BleDeviceFeature.TaskCode.EditFace -> {
+                        if (intContent != null) {
+                            editFace(index = intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.DeleteFace -> {
+                        if (intContent != null) {
+                            deleteFace(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.DeleteEvent -> {
+                        if (intContent != null) {
+                            deleteEvent(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.AddUser -> {
+                        if (intContent != null) {
+                            addUser(intContent)
+                        }
+                    }
+                    // Edit User
+                    BleDeviceFeature.TaskCode.EditUser -> {
+                        if (intContent != null) {
+                            editUser(intContent)
+                        }
+                    }
+
+                    BleDeviceFeature.TaskCode.DeleteUser -> {
+                        if (intContent != null) {
+                            deleteUser(intContent)
+                        }
+                    }
+
+                    else -> {
+
+                    }
+                }
             }
         }
-
         return content.isNotBlank()
     }
 
@@ -4788,27 +3832,618 @@ class HomeViewModel @Inject constructor(
     }
 
     fun setInputAccessCodeData(content: InputAccessCodeData){
+        val functionName = "setInputAccessCodeData"
         val indexContent = content.index.toIntOrNull()
         val codeContent = content.code
         if(indexContent != null && codeContent.isNotBlank()) {
             showLog("輸入內容: $content")
         }
-        when(uiState.value.taskCode){
-            BleDeviceFeature.TaskCode.AddAccessCode -> {
-                if(indexContent != null) {
-                    addAccessCode(code = codeContent, index = indexContent)
-                }
-            }
-            BleDeviceFeature.TaskCode.EditAccessCode -> {
-                if(indexContent != null) {
-                    editAccessCode(code = codeContent, index = indexContent)
-                }
-            }
-            else -> {
+        viewModelScope.launch {
+            runWithLoading(functionName) {
+                when (uiState.value.taskCode) {
+                    BleDeviceFeature.TaskCode.AddAccessCode -> {
+                        if (indexContent != null) {
+                            addAccessCode(code = codeContent, index = indexContent)
+                        }
+                    }
 
+                    BleDeviceFeature.TaskCode.EditAccessCode -> {
+                        if (indexContent != null) {
+                            editAccessCode(code = codeContent, index = indexContent)
+                        }
+                    }
+
+                    else -> {
+
+                    }
+                }
             }
         }
     }
+
+    fun executeAutoTest(){
+        if (!checkIsBluetoothEnable()) return
+        val functionName = "AutoTest"
+        val taskList = uiState.value.taskList.toMutableList()
+        taskList.removeIf { it.first == BleDeviceFeature.TaskCode.Connect }
+        taskList.removeIf { it.first == BleDeviceFeature.TaskCode.Disconnect }
+        taskList.removeIf { it.first == BleDeviceFeature.TaskCode.AutoTest }
+        viewModelScope.launch {
+            runWithLoading(functionName) {
+                // 初始化所有任務狀態為 IDLE
+                _uiState.update { it.copy(btnEnabled = false, testResults = taskList.associate { taskList -> taskList.first to TestStatus.IDLE }, testTaskList = taskList.toTypedArray()) }
+                // 1. 遍歷所有在 taskList 中的任務
+                for (task in taskList) {
+                    val taskCode = task.first
+                    val taskName = task.second
+                    // 2. 檢查是否有實作自動化邏輯
+                    val isAutomatedSupported = when (taskCode) {
+                        BleDeviceFeature.TaskCode.GetDeviceStatus,
+                        BleDeviceFeature.TaskCode.ToggleLockState,
+                        BleDeviceFeature.TaskCode.IsAdminCodeExists,
+                        BleDeviceFeature.TaskCode.CreateAdminCode,
+                        BleDeviceFeature.TaskCode.UpdateAdminCode,
+                        BleDeviceFeature.TaskCode.GetAdminCodePosition,
+                        BleDeviceFeature.TaskCode.DetermineLockDirection,
+                        BleDeviceFeature.TaskCode.AutoUnlockToggleLockState,
+                        BleDeviceFeature.TaskCode.GetLockName,
+                        BleDeviceFeature.TaskCode.SetLockName,
+                        BleDeviceFeature.TaskCode.GetLockTime,
+                        BleDeviceFeature.TaskCode.SetLockTime,
+                        BleDeviceFeature.TaskCode.GetLockTimeZone,
+                        BleDeviceFeature.TaskCode.SetLockTimeZone,
+                        BleDeviceFeature.TaskCode.GetLockConfig,
+                        BleDeviceFeature.TaskCode.SetLockLocation,
+                        BleDeviceFeature.TaskCode.ToggleSecurityBolt,
+                        BleDeviceFeature.TaskCode.ToggleGuidingCode,
+                        BleDeviceFeature.TaskCode.ToggleVirtualCode,
+                        BleDeviceFeature.TaskCode.ToggleTwoFA,
+                        BleDeviceFeature.TaskCode.ToggleVacationMode,
+                        BleDeviceFeature.TaskCode.ToggleAutoLock,
+                        BleDeviceFeature.TaskCode.ToggleOperatingSound,
+                        BleDeviceFeature.TaskCode.ToggleKeyPressBeep,
+                        BleDeviceFeature.TaskCode.ToggleShowFastTrackMode,
+                        BleDeviceFeature.TaskCode.ToggleSabbathMode,
+                        BleDeviceFeature.TaskCode.TogglePhoneticLanguage,
+                        BleDeviceFeature.TaskCode.GetEventQuantity,
+                        BleDeviceFeature.TaskCode.GetEvent,
+                        BleDeviceFeature.TaskCode.DeleteEvent,
+                        BleDeviceFeature.TaskCode.GetTokenArray,
+                        BleDeviceFeature.TaskCode.GetToken,
+                        BleDeviceFeature.TaskCode.AddOneTimeToken,
+                        BleDeviceFeature.TaskCode.EditToken,
+                        BleDeviceFeature.TaskCode.DeleteToken,
+                        BleDeviceFeature.TaskCode.GetUserAbility,
+                        BleDeviceFeature.TaskCode.GetUserCount,
+                        BleDeviceFeature.TaskCode.IsMatterDevice,
+                        BleDeviceFeature.TaskCode.GetUserArray,
+                        BleDeviceFeature.TaskCode.GetUser,
+                        BleDeviceFeature.TaskCode.AddUser,
+                        BleDeviceFeature.TaskCode.EditUser,
+                        BleDeviceFeature.TaskCode.DeleteUser,
+                        BleDeviceFeature.TaskCode.GetCredentialArray,
+                        BleDeviceFeature.TaskCode.GetCredential,
+                        BleDeviceFeature.TaskCode.GetCredentialByCredential,
+                        BleDeviceFeature.TaskCode.GetCredentialByUser,
+                        BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes,
+                        BleDeviceFeature.TaskCode.GetAccessCodeArray,
+                        BleDeviceFeature.TaskCode.GetAccessCode,
+                        BleDeviceFeature.TaskCode.AddAccessCode,
+                        BleDeviceFeature.TaskCode.EditAccessCode,
+                        BleDeviceFeature.TaskCode.DeleteAccessCode,
+                        BleDeviceFeature.TaskCode.GetAccessCardArray,
+                        BleDeviceFeature.TaskCode.GetAccessCard,
+                        BleDeviceFeature.TaskCode.AddAccessCard,
+                        BleDeviceFeature.TaskCode.EditAccessCard,
+                        BleDeviceFeature.TaskCode.DeleteAccessCard,
+                        BleDeviceFeature.TaskCode.DeviceGetAccessCard,
+                        BleDeviceFeature.TaskCode.GetFingerprintArray,
+                        BleDeviceFeature.TaskCode.GetFingerprint,
+                        BleDeviceFeature.TaskCode.AddFingerprint,
+                        BleDeviceFeature.TaskCode.EditFingerprint,
+                        BleDeviceFeature.TaskCode.DeleteFingerprint,
+                        BleDeviceFeature.TaskCode.DeviceGetFingerprint,
+                        BleDeviceFeature.TaskCode.GetFaceArray,
+                        BleDeviceFeature.TaskCode.GetFace,
+                        BleDeviceFeature.TaskCode.AddFace,
+                        BleDeviceFeature.TaskCode.EditFace,
+                        BleDeviceFeature.TaskCode.DeleteFace,
+                        BleDeviceFeature.TaskCode.DeviceGetFace,
+                        BleDeviceFeature.TaskCode.GetUserCredentialHash,
+                        BleDeviceFeature.TaskCode.GetBleUserHash,
+                        BleDeviceFeature.TaskCode.SetAllDataSynced,
+                        BleDeviceFeature.TaskCode.TogglePlugState,
+                        BleDeviceFeature.TaskCode.GetFwVersion,
+                        BleDeviceFeature.TaskCode.GetRfVersion,
+                        BleDeviceFeature.TaskCode.GetMcuVersion,
+                        BleDeviceFeature.TaskCode.ScanWifi,
+                        BleDeviceFeature.TaskCode.ConnectToWifi,
+                        BleDeviceFeature.TaskCode.FactoryReset, -> true
+                        // not support
+                        BleDeviceFeature.TaskCode.Connect,
+                        BleDeviceFeature.TaskCode.Disconnect,
+                        BleDeviceFeature.TaskCode.AutoTest,
+                        BleDeviceFeature.TaskCode.SetOTAUpdate,
+                        BleDeviceFeature.TaskCode.SetOTACancel,
+                        BleDeviceFeature.TaskCode.Restart,
+                        BleDeviceFeature.TaskCode.FactoryResetNoAdmin,-> false
+                        else -> false
+                    }
+
+                    // 💡 如果不支援，更新狀態為 NOT_SUPPORTED 並跳過
+                    if (!isAutomatedSupported) {
+                        updateTaskStatus(taskCode, TestStatus.NOT_SUPPORTED)
+                        continue
+                    }
+
+                    // 1. 更新 UI：目前正在執行哪一個任務
+                    updateTaskStatus(taskCode, TestStatus.RUNNING)
+                    _uiState.update { it.copy(currentTestTask = "正在執行: $taskName") }
+                    val containsGetLockSupportedUnlockTypesTask = uiState.value.taskList.any { it.first == BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes }
+                    try {
+                        // 2. 根據 TaskCode 執行對應的 suspend 函數
+                        when (taskCode) {
+                            BleDeviceFeature.TaskCode.GetLockTime -> {
+                                getLockTime()
+                            }
+
+                            BleDeviceFeature.TaskCode.SetLockTime -> {
+                                setLockTime()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetLockTimeZone -> {
+                                getLockTimeZone()
+                            }
+
+                            BleDeviceFeature.TaskCode.SetLockTimeZone -> {
+                                setLockTimeZone()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetLockName -> {
+                                getLockName()
+                            }
+
+                            BleDeviceFeature.TaskCode.SetLockName -> {
+                                setLockName()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetDeviceStatus -> {
+                                getDeviceStatus()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetLockConfig -> {
+                                getLockConfig()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleLockState -> {
+                                toggleLockState()
+                                toggleLockState()
+                            }
+
+                            BleDeviceFeature.TaskCode.AutoUnlockToggleLockState -> {
+                                autoUnlockToggleLockState()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleSecurityBolt -> {
+                                toggleSecurityBolt()
+                                toggleSecurityBolt()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleKeyPressBeep -> {
+                                toggleKeyPressBeep()
+                                toggleKeyPressBeep(100)
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleVacationMode -> {
+                                toggleVacationMode()
+                                toggleVacationMode()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleGuidingCode -> {
+                                toggleGuidingCode()
+                                toggleGuidingCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleAutoLock -> {
+                                toggleAutoLock()
+                                toggleAutoLock()
+                            }
+
+                            BleDeviceFeature.TaskCode.SetLockLocation -> {
+                                setLockLocation()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleVirtualCode -> {
+                                toggleVirtualCode()
+                                toggleVirtualCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleTwoFA -> {
+                                toggleTwoFA()
+                                toggleTwoFA()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleOperatingSound -> {
+                                toggleOperatingSound()
+                                toggleOperatingSound()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleShowFastTrackMode -> {
+                                toggleShowFastTrackMode()
+                                toggleShowFastTrackMode()
+                            }
+
+                            BleDeviceFeature.TaskCode.ToggleSabbathMode -> {
+                                toggleSabbathMode()
+                                toggleSabbathMode()
+                            }
+
+                            BleDeviceFeature.TaskCode.TogglePhoneticLanguage -> {
+                                togglePhoneticLanguage()
+                                togglePhoneticLanguage()
+                            }
+
+                            BleDeviceFeature.TaskCode.DetermineLockDirection -> {
+                                determineLockDirection()
+                            }
+
+                            BleDeviceFeature.TaskCode.IsAdminCodeExists -> {
+                                isAdminCodeExists()
+                            }
+
+                            BleDeviceFeature.TaskCode.CreateAdminCode -> {
+                                createAdminCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.UpdateAdminCode -> {
+                                updateAdminCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetAdminCodePosition -> {
+                                getAdminCodePosition()
+                            }
+
+                            BleDeviceFeature.TaskCode.TogglePlugState -> {
+                                togglePlugState()
+                                togglePlugState()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetFwVersion -> {
+                                getFirmwareVersion()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetRfVersion -> {
+                                getRfVersion()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetMcuVersion -> {
+                                getMcuVersion()
+                            }
+
+                            BleDeviceFeature.TaskCode.FactoryReset -> {
+                                factoryReset()
+                            }
+
+                            BleDeviceFeature.TaskCode.FactoryResetNoAdmin -> {
+                                factoryResetNoAdmin()
+                            }
+
+                            BleDeviceFeature.TaskCode.Restart -> {
+                                restart()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetTokenArray -> {
+                                getTokenArray()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetToken -> {
+                                getToken()
+                            }
+
+                            BleDeviceFeature.TaskCode.AddOneTimeToken -> {
+                                addOneTimeToken()
+
+                            }
+
+                            BleDeviceFeature.TaskCode.EditToken -> {
+                                editToken()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeleteToken -> {
+                                deleteToken()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetAccessCodeArray -> {
+                                getAccessCodeArray()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetAccessCode -> {
+                                getAccessCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.AddAccessCode -> {
+                                addAccessCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.EditAccessCode -> {
+                                editAccessCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeleteAccessCode -> {
+                                deleteAccessCode()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetAccessCardArray -> {
+                                getAccessCardArray()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetAccessCard -> {
+                                getAccessCard()
+                            }
+
+                            BleDeviceFeature.TaskCode.AddAccessCard -> {
+                                addAccessCard()
+                            }
+
+                            BleDeviceFeature.TaskCode.EditAccessCard -> {
+                                editAccessCard()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeleteAccessCard -> {
+                                deleteAccessCard()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeviceGetAccessCard -> {
+                                deviceGetAccessCard()
+                                if (containsGetLockSupportedUnlockTypesTask) {
+                                    deviceExitAccess(Access.Type.CARD.value, lastCodeCardIndex)
+                                } else {
+                                    deviceExitCredential(
+                                        BleV3Lock.CredentialType.RFID.value,
+                                        lastCodeCardIndex
+                                    )
+                                }
+                            }
+
+                            BleDeviceFeature.TaskCode.GetFingerprintArray -> {
+                                getFingerprintArray()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetFingerprint -> {
+                                getFingerprint()
+                            }
+
+                            BleDeviceFeature.TaskCode.AddFingerprint -> {
+                                addFingerprint()
+                            }
+
+                            BleDeviceFeature.TaskCode.EditFingerprint -> {
+                                editFingerprint()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeleteFingerprint -> {
+                                deleteFingerprint()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeviceGetFingerprint -> {
+                                deviceGetFingerprint()
+                                if (containsGetLockSupportedUnlockTypesTask) {
+                                    deviceExitAccess(
+                                        Access.Type.FINGERPRINT.value,
+                                        lastFingerprintIndex
+                                    )
+                                } else {
+                                    deviceExitCredential(
+                                        BleV3Lock.CredentialType.FINGERPRINT.value,
+                                        lastFingerprintIndex
+                                    )
+                                }
+                            }
+
+                            BleDeviceFeature.TaskCode.GetFaceArray -> {
+                                getFaceArray()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetFace -> {
+                                getFace()
+                            }
+
+                            BleDeviceFeature.TaskCode.AddFace -> {
+                                addFace()
+                            }
+
+                            BleDeviceFeature.TaskCode.EditFace -> {
+                                editFace()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeleteFace -> {
+                                deleteFace()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeviceGetFace -> {
+                                deviceGetFace()
+                                if (containsGetLockSupportedUnlockTypesTask) {
+                                    deviceExitAccess(Access.Type.FACE.value, lastFaceIndex)
+                                } else {
+                                    deviceExitCredential(
+                                        BleV3Lock.CredentialType.FACE.value,
+                                        lastFaceIndex
+                                    )
+                                }
+                            }
+
+                            BleDeviceFeature.TaskCode.GetEventQuantity -> {
+                                getEventQuantity()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetEvent -> {
+                                getEvent()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeleteEvent -> {
+                                deleteEvent()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetLockSupportedUnlockTypes -> {
+                                getLockSupportedUnlockTypes()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetUserAbility -> {
+                                getUserAbility()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetUserCount -> {
+                                getUserCount()
+                            }
+
+                            BleDeviceFeature.TaskCode.IsMatterDevice -> {
+                                isMatterDevice()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetUserArray -> {
+                                getUserArray()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetUser -> {
+                                getUser()
+                            }
+
+                            BleDeviceFeature.TaskCode.AddUser -> {
+                                addUser()
+                                addUser()
+                            }
+
+                            BleDeviceFeature.TaskCode.EditUser -> {
+                                editUser()
+                            }
+
+                            BleDeviceFeature.TaskCode.DeleteUser -> {
+                                deleteUser()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetCredentialArray -> {
+                                getCredentialArray()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetCredential -> {
+                                getCredential()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetCredentialByCredential -> {
+                                getCredentialByCredential()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetCredentialByUser -> {
+                                getCredentialByUser()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetUserCredentialHash -> {
+                                getUserCredentialHash()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetBleUserHash -> {
+                                getBleUserHash()
+                            }
+
+                            BleDeviceFeature.TaskCode.SetAllDataSynced -> {
+                                setAllDataSynced()
+                            }
+
+                            BleDeviceFeature.TaskCode.ScanWifi -> {
+                                when (_currentDeviceStatus) {
+                                    is DeviceStatus.EightTwo -> {
+                                        collectWifiList3()
+                                        scanWifi3().join()
+                                    }
+
+                                    is DeviceStatus.B0 -> {
+                                        collectWifiList3()
+                                        scanWifi3().join()
+                                    }
+
+                                    else -> {
+                                        collectWifiList()
+                                        scanWifi()
+                                    }
+                                }
+                            }
+
+                            BleDeviceFeature.TaskCode.ConnectToWifi -> {
+                                when (_currentDeviceStatus) {
+                                    is DeviceStatus.EightTwo -> {
+                                        connectToWifi3("Sunion-SW", "S-device_W").join()
+                                    }
+
+                                    is DeviceStatus.B0 -> {
+                                        connectToWifi3("Sunion-SW", "S-device_W").join()
+                                    }
+
+                                    else -> {
+                                        connectToWifi("Sunion-SW", "S-device_W")
+                                    }
+                                }
+                            }
+
+                            BleDeviceFeature.TaskCode.SetOTAUpdate -> {
+                                if (!isBackgroundOTA) {
+                                    // Foreground OTA Update
+                                    otaUpdate(currentTarget, signatureV005)
+                                } else {
+                                    // Background OTA Update
+                                    backGroundOTAUpdate()
+                                }
+                            }
+
+                            BleDeviceFeature.TaskCode.SetOTACancel -> {
+                                setOTACancel(currentTarget)
+                            }
+
+                            else -> {
+                                showLog("跳過任務: $taskCode (未實作自動化)")
+                            }
+                        }
+                        // 3. 執行成功，更新狀態
+                        updateTaskStatus(taskCode, TestStatus.SUCCESS)
+                    } catch (e: NotConnectedException) {
+                        showLog("$functionName: ${taskCode.name} 自動化測試中斷，鎖體藍牙斷線")
+                        updateTaskStatus(taskCode, TestStatus.FAILED)
+                    } catch (e: LockStatusException.LockFunctionNotSupportException) {
+                        showLog("$functionName: ${taskCode.name} 不支援，已忽略")
+                        updateTaskStatus(taskCode, TestStatus.NOT_SUPPORTED)
+                    } catch (e: Exception) {
+                        showLog("自動化測試中斷: $e")
+                        updateTaskStatus(taskCode, TestStatus.FAILED)
+                    }
+                }
+                _uiState.update { it.copy(btnEnabled = true, currentTestTask = "自動化測試完成", showReport = true) }
+            }
+        }
+    }
+
+    private fun updateTaskStatus(taskCode: BleDeviceFeature.TaskCode, status: TestStatus) {
+        _uiState.update { state ->
+            val newResults = state.testResults.toMutableMap()
+            newResults[taskCode] = status
+            state.copy(testResults = newResults)
+        }
+    }
+
+    // 提供一個關閉報告的函式
+    fun closeReport() {
+        _uiState.update { it.copy(showReport = false) }
+    }
+
+    private fun getRandomCode(): String{
+        return String.format("%04d", Random().nextInt(10000))
+    }
+}
+
+enum class TestStatus {
+    IDLE,       // 尚未開始
+    RUNNING,    // 執行中
+    SUCCESS,    // 成功
+    FAILED,      // 失敗
+    NOT_SUPPORTED   // 不支援
 }
 
 data class UiState(
@@ -4829,6 +4464,10 @@ data class UiState(
     val inputDialogInitialIndex: String = "",
     val inputDialogAccessCode: String = "",
     val inputDialogContent: String = "",
+    val testResults: Map<BleDeviceFeature.TaskCode, TestStatus> = emptyMap(),
+    val testTaskList: Array<Triple<BleDeviceFeature.TaskCode, String, Set<String>>> = BleDeviceFeature.initTaskList,
+    val currentTestTask: String? = null,
+    val showReport: Boolean = false
 )
 
 sealed class UiEvent {

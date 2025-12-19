@@ -13,6 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -152,6 +156,22 @@ fun HomeScreen(viewModel: HomeViewModel, navController: NavController) {
         )
     }
 
+    if (uiState.showReport) {
+        // 使用 Dialog 顯示報告，點擊外面或按關閉可消失
+        AlertDialog(
+            onDismissRequest = { viewModel.closeReport() },
+            title = { Text("自動化測試報告") },
+            text = {
+                // 呼叫我們之前寫好的 Report Screen
+                TestReportScreen(uiState = uiState)
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.closeReport() }) {
+                    Text("關閉")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -306,6 +326,64 @@ fun HomeScreen(
                 colors = ButtonDefaults.buttonColors(backgroundColor = AppTheme.colors.primary, disabledBackgroundColor = AppTheme.colors.buttonDisable)
             ) {
                 Text("Execute", style = AppTheme.typography.button)
+            }
+        }
+    }
+}
+
+@Composable
+fun TestReportScreen(uiState: UiState) {
+    // 計算成功與失敗的數量
+    val total = uiState.testResults.size
+    val successCount = uiState.testResults.values.count { it == TestStatus.SUCCESS }
+    val failedCount = uiState.testResults.values.count { it == TestStatus.FAILED }
+    val unsupportedCount = uiState.testResults.values.count { it == TestStatus.NOT_SUPPORTED }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // 總結區域
+        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Text("總計: $total", style = MaterialTheme.typography.caption)
+            Text("成功: $successCount", color = Color(0xFF4CAF50), style = MaterialTheme.typography.caption)
+            Text("失敗: $failedCount", color = Color.Red, style = MaterialTheme.typography.caption)
+            Text("不支援: $unsupportedCount", color = Color.Gray, style = MaterialTheme.typography.caption)
+        }
+
+        Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+        // 測試細項列表
+        LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) { // 限制最大高度
+            items(uiState.testTaskList) { task ->
+                val status = uiState.testResults[task.first] ?: TestStatus.IDLE
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth()
+                ) {
+                    val (icon, color, label) = when (status) {
+                        TestStatus.SUCCESS -> Triple(Icons.Default.CheckCircle, Color(0xFF4CAF50), "成功")
+                        TestStatus.FAILED -> Triple(Icons.Default.Close, Color.Red, "失敗")
+                        TestStatus.RUNNING -> Triple(Icons.Default.Refresh, Color.Blue, "執行中")
+                        TestStatus.NOT_SUPPORTED -> Triple(Icons.Default.Close, Color.Gray, "未實作測試")
+                        TestStatus.IDLE -> Triple(Icons.Default.Refresh, Color.LightGray, "待執行")
+                    }
+
+                    Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = task.second,
+                        style = MaterialTheme.typography.body2,
+                        modifier = Modifier.weight(1f),
+                        color = if (status == TestStatus.NOT_SUPPORTED) Color.Gray else Color.Unspecified
+                    )
+
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.caption,
+                        color = color
+                    )
+                }
             }
         }
     }
