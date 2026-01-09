@@ -142,6 +142,9 @@ class HomeViewModel @Inject constructor(
     private var model: String = ""
     private var isBackgroundOTA = false
 
+    @Volatile
+    var connectBleLockCompletion: CompletableDeferred<Unit>? = null
+
     fun init() {
         Timber.d("init")
         collectBluetoothAvailableState()
@@ -652,6 +655,7 @@ class HomeViewModel @Inject constructor(
                                         _currentDeviceStatus = sunionBleNotification
                                         showLog("Incoming ${sunionBleNotification::class.simpleName} arrived.")
                                         setSupportTaskList(sunionBleNotification)
+                                        connectBleLockCompletion?.complete(Unit)
                                     }
                                     is Alert -> {
                                         _currentSunionBleNotification = sunionBleNotification
@@ -694,6 +698,8 @@ class HomeViewModel @Inject constructor(
                             }
                             showLog("Lock connection information:")
                             showLog("$lockConnectionInfo")
+                            connectBleLockCompletion = CompletableDeferred()
+                            connectBleLockCompletion?.await()
                             initLock()
 
                             // 連線成功，通知等待結束

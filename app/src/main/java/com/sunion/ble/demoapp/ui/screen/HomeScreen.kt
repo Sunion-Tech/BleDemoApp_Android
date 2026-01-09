@@ -190,6 +190,8 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()       // 加上 padding 避免 UI 被狀態列擋住
+            .navigationBarsPadding()   // 避免 UI 被導航列擋住
             .background(Color.White)
     ) {
         TopAppBar(
