@@ -25,7 +25,7 @@
         android:theme="@style/Theme.BleDemoApp_Android"
         tools:targetApi="31">
         <activity
-            android:name="com.sunion.ble.demoapp.MainActivity"
+            android:name=".MainActivity"
             android:launchMode="singleTask"
             android:exported="true"
             android:screenOrientation="portrait">
@@ -48,6 +48,19 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/provider_paths" />
+        </provider>
+
+        <!-- 移除 WorkManager 的預設初始化器 -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <!-- If you are using androidx.startup to initialize other components -->
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
         </provider>
 
         <service

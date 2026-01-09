@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">BleDemoApp_Android</string>
+    <string name="launcher_version"><![CDATA[Ver. %s]]></string>
 </resources>

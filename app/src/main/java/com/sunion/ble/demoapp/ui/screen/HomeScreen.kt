@@ -23,8 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.rememberPermissionState
 import androidx.navigation.NavController
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -247,7 +250,7 @@ fun HomeScreen(
         LazyColumn(state = listState,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(top = 12.dp, start = 12.dp, end = 12.dp)
                 .weight(1f)) {
             items(logList) {
                 Text(text = it, style = AppTheme.typography.body)
@@ -257,6 +260,18 @@ fun HomeScreen(
                     listState.scrollToItem(logList.size - 1)
                 }
             }
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            val versionName = BuildConfig.VERSION_NAME.substringBeforeLast(".")
+            Text(
+                text = stringResource(id = R.string.launcher_version, versionName),
+                color = colorResource(id = R.color.black),
+                fontSize = 10.sp,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp)
+            )
         }
 
         IKeyDivider()
