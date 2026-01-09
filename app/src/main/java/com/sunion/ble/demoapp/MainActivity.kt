@@ -21,18 +21,27 @@ import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private val requestMultiplePermissions =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-            permissions.entries.forEach {
-                Timber.d("${it.key} = ${it.value}")
+    private val requestMultiplePermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        permissions.entries.forEach {
+            Timber.d("${it.key} = ${it.value}")
+            val isGranted = it.value
+            if (isGranted) {
+                // 權限已獲取
+                Timber.d("${it.key} = ${it.value} isGranted")
+            } else {
+                // 權限被拒絕
+                Timber.d("${it.key} = ${it.value} isDeny")
             }
         }
+    }
 
-    private var requestBluetooth = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    private val requestBluetooth = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
             //granted
+            Timber.d("requestBluetooth isGranted")
         }else{
             //deny
+            Timber.d("requestBluetooth isDeny")
         }
     }
 
@@ -45,21 +54,33 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val permissionsToRequest = mutableListOf<String>()
+
+        // 判斷是否需要通知權限 (Android 13+, Tiramisu)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestMultiplePermissions.launch(
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS)
-            )
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        // 判斷藍牙權限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            requestMultiplePermissions.launch(arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT))
-        }
-        else{
+            // Android 12+ 需要新的藍牙權限
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
+            permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
+        } else {
+            // Android 11 以下，藍牙掃描通常只需要位置權限
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+            // 請求開啟藍牙功能 (這是 Intent，不是 Permission)
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             requestBluetooth.launch(enableBtIntent)
+        }
+
+        // 一次性發出所有權限請求
+        if (permissionsToRequest.isNotEmpty()) {
+            requestMultiplePermissions.launch(permissionsToRequest.toTypedArray())
         }
     }
 }
