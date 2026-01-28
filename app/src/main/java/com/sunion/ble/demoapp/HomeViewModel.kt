@@ -326,6 +326,9 @@ class HomeViewModel @Inject constructor(
                     BleDeviceFeature.TaskCode.GetFwVersion -> {
                         getFirmwareVersion()
                     }
+                    BleDeviceFeature.TaskCode.GetFwModel -> {
+                        getFirmwareModel()
+                    }
                     // Get RF version
                     BleDeviceFeature.TaskCode.GetRfVersion -> {
                         getRfVersion()
@@ -1539,6 +1542,14 @@ class HomeViewModel @Inject constructor(
         val functionName = "getFirmwareVersion"
         val version = lockUtilityUseCase.getFirmwareVersion()
         showLog("$functionName: $version")
+    }
+
+    private suspend fun getFirmwareModel(): String {
+        val functionName = "getFirmwareModel"
+        val model = lockUtilityUseCase.getFirmwareModel()
+        showLog("$functionName: $model")
+        Timber.d("$functionName: $model")
+        return model
     }
 
     private suspend fun getRfVersion() {
@@ -3960,6 +3971,7 @@ class HomeViewModel @Inject constructor(
                         BleDeviceFeature.TaskCode.SetAllDataSynced,
                         BleDeviceFeature.TaskCode.TogglePlugState,
                         BleDeviceFeature.TaskCode.GetFwVersion,
+                        BleDeviceFeature.TaskCode.GetFwModel,
                         BleDeviceFeature.TaskCode.GetRfVersion,
                         BleDeviceFeature.TaskCode.GetMcuVersion,
                         BleDeviceFeature.TaskCode.ScanWifi,
@@ -4116,6 +4128,10 @@ class HomeViewModel @Inject constructor(
 
                             BleDeviceFeature.TaskCode.GetFwVersion -> {
                                 getFirmwareVersion()
+                            }
+
+                            BleDeviceFeature.TaskCode.GetFwModel -> {
+                                getFirmwareModel()
                             }
 
                             BleDeviceFeature.TaskCode.GetRfVersion -> {
