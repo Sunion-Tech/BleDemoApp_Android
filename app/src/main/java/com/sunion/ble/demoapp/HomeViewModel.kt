@@ -201,7 +201,6 @@ class HomeViewModel @Inject constructor(
                             startBleScan(
                                 currentQrCodeContent!!,
                                 currentProductionGetResponse!!,
-                                true
                             )
                         } else {
                             connect()
@@ -3240,7 +3239,7 @@ class HomeViewModel @Inject constructor(
         return false
     }
 
-    private suspend fun startBleScan(uuid: String, productionGetResponse: ProductionGetResponse, isReconnect: Boolean = false) {
+    private suspend fun startBleScan(uuid: String, productionGetResponse: ProductionGetResponse) {
         showLog("Scan and wait for find device...")
         // 建立一個信號燈，用來控制這段 suspend 程式何時結束
         val scanTaskSignal = CompletableDeferred<Unit>()
@@ -3267,7 +3266,7 @@ class HomeViewModel @Inject constructor(
                         showLog("Production api or scan ble to get mac address failed.")
                     }
                     viewModelScope.launch {
-                        if (isReconnect) {
+                        if (lockConnectionInfo != null) {
                             _lockConnectionInfo =
                                 lockConnectionInfo!!.copy(macAddress = currentConnectMacAddress!!)
                             try {
@@ -3320,7 +3319,7 @@ class HomeViewModel @Inject constructor(
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.SetOTACancel }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
             }
-            "TNRFp00", "KD01", "TNRFp01", "KDFa01", "TD01", "KDM01", "KDFp01" -> {
+            "TNRFp00", "KD01", "TNRFp01", "KDFa01", "TD01", "KDM01", "KDFp01", "TLR01" -> {
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ScanWifi }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.ConnectToWifi }
                 supportTaskList.removeIf { it.first == BleDeviceFeature.TaskCode.FactoryResetNoAdmin }
