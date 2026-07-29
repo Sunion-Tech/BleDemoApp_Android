@@ -30,7 +30,8 @@ Git 規範、進度文件路由）全部寫在 [AGENTS.md](AGENTS.md)**，由上
 - **Skill 白名單**（唯一定義處；名稱以 session 內 available-skills 清單所列**全名**為準，plugin skill 帶
   `plugin:` 前綴）：`android-dev-governance`、`android-expert`、`orchestrator`、
   `engineering:code-review`、`review`、`security-review`、`run`、`simplify`、`update-config`、
-  `anthropic-skills:skill-creator`；其他 skill 僅在使用者明確指名（輸入 `/<skill>`）時使用。
+  `anthropic-skills:skill-creator`、`grilling`、`grill-me`、`codebase-design`；
+  其他 skill 僅在使用者明確指名（輸入 `/<skill>`）時使用。
   **清單以 session 實際載入的 available-skills 為準**——名稱對不上就以 session 為準並回報，
   不要硬呼叫不存在的 skill。
 - **制度分工（三層，各有明確職責）**：
