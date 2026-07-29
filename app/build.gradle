@@ -1,12 +1,13 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
-    id 'kotlin-kapt'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'com.google.devtools.ksp'
     id 'com.google.dagger.hilt.android'
 }
 
 ext {
-    archivesBaseName = "BleDemoApp"
+    // 不叫 archivesBaseName：那是 Gradle base plugin 的舊屬性名（Gradle 9 已移除），同名 ext 會混淆
+    apkBaseName = "BleDemoApp"
 
     versionMajor = 1
 
@@ -19,7 +20,7 @@ ext {
 
 android {
     namespace 'com.sunion.ble.demoapp'
-    compileSdk 35
+    compileSdk 37
 
     signingConfigs {
         def keystorePropertiesFile
@@ -38,7 +39,7 @@ android {
     defaultConfig {
         applicationId "com.sunion.ble.demoapp"
         minSdk 26
-        targetSdk 35
+        targetSdk 37
         versionCode versionMajor * 10000 + versionMinor * 1000 + versionPatch * 100 + versionBuild
         versionName "${versionMajor}.${versionMinor}.${versionPatch}.${versionBuild}"
 
@@ -72,33 +73,37 @@ android {
         }
     }
 
-    applicationVariants.all { variant ->
-        variant.outputs.all {
-            outputFileName = "$archivesBaseName-${variant.baseName}-${variant.versionCode}-${variant.versionName}.apk"
-        }
-    }
-
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = '17'
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
     buildFeatures {
         compose true
+        buildConfig true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion '1.5.14'
-    }
-    packagingOptions {
+    packaging {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
     }
-    buildFeatures {
-        buildConfig true
+
+    // AGP 9 移除 Variant API V1（applicationVariants），改用 androidComponents V2；
+    // Gradle 9 預設 Configuration Cache，閉包內只能用事先萃取的純字串
+    androidComponents {
+        onVariants(selector().all()) { variant ->
+            def buildTypeStr = variant.buildType ?: "debug"
+            def baseName = apkBaseName
+            def vCode = android.defaultConfig.versionCode
+            def vName = android.defaultConfig.versionName
+            variant.outputs.forEach { output ->
+                output.outputFileName.set("${baseName}-${buildTypeStr}-${vCode}-${vName}.apk")
+            }
+        }
     }
+}
+
+kotlin {
+    jvmToolchain(21)
 }
 
 dependencies {
@@ -107,12 +112,15 @@ dependencies {
     implementation "androidx.core:core-ktx:$coreVersion"
     //implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.2.0'
     implementation "androidx.lifecycle:lifecycle-livedata-core:2.6.1"
-    implementation 'androidx.activity:activity-compose:1.7.1'
+    implementation 'androidx.activity:activity-compose:1.10.1'
 
     implementation "androidx.compose.ui:ui:$compose_ui_version"
     implementation "androidx.compose.ui:ui-tooling:$compose_ui_version"
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_ui_version"
     implementation "androidx.compose.material:material:$compose_ui_version"
+    // Compose 1.9.0 起 material 不再傳遞 icons-core，需明確宣告；
+    // 該 artifact 停版於 1.7.8，不隨 compose_ui_version 走
+    implementation "androidx.compose.material:material-icons-core:1.7.8"
 
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_ui_version"
     debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_ui_version"
@@ -120,10 +128,12 @@ dependencies {
     implementation 'com.google.android.material:material:1.8.0'
 
     implementation "com.google.dagger:hilt-android:$hilt_version"
-    kapt "com.google.dagger:hilt-android-compiler:$hilt_version"
-    kapt 'androidx.hilt:hilt-compiler:1.2.0'
-    implementation "androidx.hilt:hilt-work:1.2.0"
-    implementation "androidx.work:work-runtime-ktx:2.8.1"
+    ksp "com.google.dagger:hilt-android-compiler:$hilt_version"
+    ksp 'androidx.hilt:hilt-compiler:1.2.0'
+    // hilt-work 1.4.0 配合 WorkManager Kotlin 化 API；
+    // work-runtime-ktx 2.11.2 自帶 consumer-rules，天然防禦 R8 Full Mode 誤殺反射建構子
+    implementation "androidx.hilt:hilt-work:1.4.0"
+    implementation "androidx.work:work-runtime-ktx:2.11.2"
 
     // navigation
     implementation "androidx.navigation:navigation-compose:2.5.3"

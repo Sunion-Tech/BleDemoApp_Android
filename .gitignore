@@ -92,3 +92,9 @@ shared/src/main/kotlin/
 testlib/libs/
 # Module
 core_ble_android
+
+# Claude Code（本機權限白名單，不進版控；制度檔 CLAUDE.md / docs/ 要進版控）
+.claude/settings.local.json
+
+# Kotlin 2.x 工作目錄
+.kotlin/

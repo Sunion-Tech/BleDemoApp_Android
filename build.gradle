@@ -4,20 +4,27 @@ buildscript {
         mavenCentral()
     }
     ext {
-        kotlinVersion = '1.9.24'
+        kotlinVersion = '2.3.10'
+        // KSP 2.0 起採用獨立版本號，不再是 {kotlin}-{ksp} 格式
+        kspVersion = '2.3.9'
         coreVersion = '1.13.1'
         timber_version = '5.0.1'
-        hilt_version = '2.52'
-        compose_ui_version = '1.7.0'
+        // Hilt 2.59.2 以上才支援 AGP 9 與 KSP2
+        hilt_version = '2.59.2'
+        compose_ui_version = '1.9.0'
     }
 }// Top-level build file where you can add configuration options common to all sub-projects/modules.
 plugins {
-    id 'com.android.application' version '8.6.1' apply false
-    id 'com.android.library' version '8.6.1' apply false
-    id 'org.jetbrains.kotlin.android' version "$kotlinVersion" apply false
+    id 'com.android.application' version '9.2.0' apply false
+    id 'com.android.library' version '9.2.0' apply false
+    // AGP 9 內建 Kotlin，移除 org.jetbrains.kotlin.android；Compose 編譯器改由官方 plugin 提供
+    id 'org.jetbrains.kotlin.plugin.compose' version "$kotlinVersion" apply false
+    // core_ble_android（submodule）已改用 KSP，root 必須宣告版本供子模組解析
+    id 'com.google.devtools.ksp' version "$kspVersion" apply false
     id 'com.google.dagger.hilt.android' version "$hilt_version" apply false
 }
 
+// rootProject.buildDir 自 Gradle 8.4 起 deprecated（Gradle 10 移除），改用 layout Provider
 task clean(type: Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }

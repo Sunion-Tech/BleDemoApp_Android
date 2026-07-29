@@ -21,10 +21,10 @@ class HiltApplication : Application(), Configuration.Provider {
         }
     }
 
-    override fun getWorkManagerConfiguration(): Configuration {
-        return Configuration.Builder()
+    // WorkManager 2.9 起全面 Kotlin 化，getWorkManagerConfiguration() 已改為唯讀屬性
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
-    }
 
 }
