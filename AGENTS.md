@@ -20,6 +20,9 @@ minSdk 26、**無 productFlavors**，只有 `debug` / `release` 兩個 buildType
 > 不是產品。所以「UI 好不好看」「架構純不純」不是重點，**指令正確、log 誠實、加新指令不破壞既有的**才是。
 > 下面的規則按這個定位寫，不要拿消費者 App（姊妹專案 iKeyConnect v3）的標準來套。
 
+> **跨專案定位**（五專案全局總覽見本機 `../Android專案說明.md`，非版控）：藍牙 SDK 用 `core_ble_android`
+> （驗證 BLE V1~V3 SDK 指令）；內部測試用、未上架。是 `BleMFRDemoApp_Android` 的母體（後者以本專案為基礎開發、改用 MFR SDK）。
+
 ---
 
 ## 0. 鐵律（違反任一條 = 改動直接打回）
@@ -38,10 +41,10 @@ minSdk 26、**無 productFlavors**，只有 `debug` / `release` 兩個 buildType
 9. **未收到明確指示不得 commit**；commit 訊息依 §5。
 10. 沒實際執行過的驗證不得聲稱「已驗證」；跑不了就明說「未驗證」。
     本專案**測試基建尚未導入**（僅 4 個 Android 範本測試檔），「測試通過」目前不可能為真。
-11. **規則同步——依規範性質判斷，不依檔案**。改到**具四專案共通性的規範**時
+11. **規則同步——依規範性質判斷，不依檔案**。改到**具五專案共通性的規範**時
     （§0 鐵律、§5 commit 規範、§1 的驗證流程與環境限制——同一台機器共用），
     `Sunion_iKeyConnect_v3_Android`、`Sunion_multiFamily_Android`、`BleDemoApp_Android`、
-    `BleMFRDemoApp_Android` 四個專案的對應檔案必須一併修正；共用制度（skill
+    `BleMFRDemoApp_Android`、`BleProductionTest_Android` 五個專案的對應檔案必須一併修正；共用制度（skill
     `android-dev-governance` 的 `rules/*.md`）更動亦同。
     **只屬單一專案的事實不必同步**：§2 架構、§3 TaskCode 鏈路、§4 類別歸位、§6 語言現況、
     gradlew task 名、submodule、機種清單。
@@ -90,6 +93,8 @@ keystore 得先 `--stop`（本專案的 build script 寫法問題，已記入 ba
 ```
 
 - 一次呼叫做完：建可見視窗 → 視窗即時串流 build log → 回傳完整 log 與 `EXITCODE=n`（log 落在 `%TEMP%\gradle-detached-<repo>.log`，UTF-8）
+- ⚠️ **判定成敗看 log 內的 `EXITCODE=` 或 `BUILD SUCCESSFUL/FAILED`，不要看背景任務／呼叫端的 exit code**：
+  此腳本外層只回傳 log、**不把 gradle 的離場碼往上傳**，build 失敗時仍可能報 exit 0（2026-07-29 實際誤判過一次）。
 - 視窗跑完 10 秒自動關閉或按任意鍵關閉；`-CloseAfterSec 0` 不留視窗
 - 逾時預設 600s（`-TimeoutSec` 可調），逾時或無 log ＝ 視窗沒真的跑起來，重跑一次
 - 已驗證無效、不要再試：`dangerouslyDisableSandbox`、`JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`、
@@ -105,6 +110,9 @@ BLE 模組單獨編譯 `:core_ble_android:compileDebugKotlin`；
 出簽章版 `:app:assembleRelease`；
 單元測試 `testDebugUnitTest`（測試基建尚未導入，backlog B3；
 **B3 完成前，編譯通過就是機械驗證底線**，不要謊稱「測試通過」）。
+
+> **無 product flavor**：`assembleRelease` 只產單一輸出、只編一次，**不需要** `--max-workers` 限制
+> （那是多 flavor 專案一次全建時、防數個 flavor 的 Kotlin 編譯並行擠爆 daemon heap 而 OOM 用的，如 iKeyConnect_v3 的 7 flavor）。
 
 **release 產物的機械驗證**（升級或改 build script 後才需要，指令已實跑過）：
 
@@ -303,6 +311,7 @@ route 字串**沿用既有的 PascalCase**（`HomeRoute("Home")`、`HomeRoute("S
 | 想知道什麼 | 讀這個 |
 |---|---|
 | 新增／修改 BLE 指令、UseCase、HomeViewModel 函式；動 Coroutine/Flow | [docs/ai/CODE_PATTERNS.md](docs/ai/CODE_PATTERNS.md)（完整範式，照抄即正確） |
+| BLE 協定 frame／指令碼／加解密（動 BLE 封包前必讀，嚴禁憑通識杜撰） | repo 外 `../Document/Sunion BLE cmd V1/V2/V3.md`（本專案用 `core_ble_android`＝驗證 BLE V1~V3，程式碼含 `BleV2Lock`/`BleV3Lock`；MFR 版是姊妹專案用、本專案不需要） |
 | 技術債（B1–B6）、測試導入、KMP 評估、Git 現況 | [docs/REFACTORING_BACKLOG.md](docs/REFACTORING_BACKLOG.md)（活文件，最新進度看這裡） |
 | **接下來要做什麼、為什麼是這個順序** | 同上 §R 演進路線圖（R0–R7）。R0–R3 已完成，下一步是 **R4 跨語言測試向量**（＝B3 階段 1）；KMP 評估要等 B1–B5＋R1–R4 全部完成，判準見 §R.3.1 |
 | Android 17（targetSdk 37）升級的實際做法 | **本專案已於 2026-07-29 升完**，實跑結果與踩雷紀錄見 backlog B5-2／B5-4。姊妹專案 `Sunion_iKeyConnect_v3_Android/docs/android-17-migration/android-sdk-upgrade-guide.md` 仍是最完整的通用指南，**下次大版升級（Gradle 10／Android 18）再讀** |
