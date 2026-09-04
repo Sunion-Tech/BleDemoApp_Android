@@ -8,7 +8,7 @@ Git 規範、進度文件路由）全部寫在 [AGENTS.md](AGENTS.md)**，由上
 **共通入口是 `AGENTS.md`**：其他 agent 工具讀得懂 `CLAUDE.md`，但未必會**自動載入**它
 （Codex 自動讀 git root 起的 `AGENTS.md` 階層；Antigravity 自動讀 `AGENTS.md`／`GEMINI.md`／`.agents/rules`）。
 所以共通事實要改就改 AGENTS.md，**不要在本檔重寫一份**——兩處各寫必然漂移。
-規則同步義務見 [AGENTS.md](AGENTS.md) §0 鐵律 11（依規範性質判斷，不依檔案）。
+規則同步義務見 [AGENTS.md](AGENTS.md) §0 鐵律 12（依規範性質判斷，不依檔案）。
 
 ---
 

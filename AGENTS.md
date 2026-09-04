@@ -41,7 +41,22 @@ minSdk 26、**無 productFlavors**，只有 `debug` / `release` 兩個 buildType
 9. **未收到明確指示不得 commit**；commit 訊息依 §5。
 10. 沒實際執行過的驗證不得聲稱「已驗證」；跑不了就明說「未驗證」。
     本專案**測試基建尚未導入**（僅 4 個 Android 範本測試檔），「測試通過」目前不可能為真。
-11. **規則同步——依規範性質判斷，不依檔案**。改到**具五專案共通性的規範**時
+11. **註解／文件引用程式碼一律用「檔名 ＋ 符號名」，不寫行號**——符號名指函式名、類別名、
+    欄位名、testTag、或某個具名的判斷式。
+      ✅ `SomeViewModel.kt` 的 `someFunction`
+      ✅ `SomeScreen.kt` 裡掛 `_SomeTestTag` 的那段
+      ❌ `SomeViewModel.kt:2344`　❌ `SomeScreen.kt:434-460`
+    選符號名的原則是**讀者拿它去 grep 該檔要能一次命中**；找不到合適符號就描述那段在做什麼，
+    但不留數字。
+    適用**任何引用程式碼位置的地方**：Kotlin／Java 註解與 KDoc、Maestro flow 檔頭、
+    `docs/` 文件、commit 訊息（只約束新寫的；已提交的不回頭改，機械檢查也不涵蓋）。
+    可機械檢查：`grep -rE "\.(kt|kts|java|py|yaml|md|gradle):[0-9]"`。
+    ⚠ 預期會有兩類命中不算違反：本條自身的 ❌ 範例，以及刻意記錄「某次錯誤參照」的說明。
+    **為什麼**：行號隨改動過期只是其一，更嚴重的是**複製檔案時數字不會跟著換**——
+    2026-09-04 在 `Sunion_iKeyConnect_v3_Android` 實例：Maestro flow 由 BLE 版機械複製成 WiFi 版時
+    （產生器只換 testTag 前綴），行號原封不動帶過去，參照於是指向完全另一個功能——
+    **產生的當下就是錯的，而且會誤導人**。
+12. **規則同步——依規範性質判斷，不依檔案**。改到**具五專案共通性的規範**時
     （§0 鐵律、§5 commit 規範、§1 的驗證流程與環境限制——同一台機器共用），
     `Sunion_iKeyConnect_v3_Android`、`Sunion_multiFamily_Android`、`BleDemoApp_Android`、
     `BleMFRDemoApp_Android`、`BleProductionTest_Android` 五個專案的對應檔案必須一併修正；共用制度（skill
