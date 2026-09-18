@@ -2,7 +2,7 @@
 
 > 2026-07-27 由 Opus 5 撰寫（建制 session）。這套制度移植自姊妹專案
 > `Sunion_iKeyConnect_v3_Android`，**協作邏輯與流程完全一致**，專案事實則全部重新實查。
-> 通用制度規則集中於共用 skill `android-dev-governance`（單一來源，三個 Sunion Android 專案共用）；
+> 通用制度規則集中於共用 skill `android-dev-governance`（單一來源，五個 Sunion Android 專案共用）；
 > `docs/ai/` 只留專案專屬檔（本檔、CODE_PATTERNS）。
 > 本檔正文凍結；只能在末尾「交接區」追加（見 skill `android-dev-governance` `rules/40-maintenance-protocol.md` §1）。
 
@@ -57,7 +57,7 @@ Windows 11＋PowerShell 5.1（`&&` 不能用、預設編碼陷阱多）、使用
 | **`core_ble_android` 是 submodule** | 先在子模組 commit 再更新主專案 gitlink，忘記分離是最高頻錯誤。而且**新增 BLE 功能幾乎一定會動到它**（TaskCode 與 UseCase 都在裡面）。 |
 | **`.gitignore:94` 的 `core_ble_android` 是誤導** | 那條 ignore 無效（gitlink 已在 index，mode 160000）。看到它不要推論「submodule 沒被追蹤」。已記入 backlog B4。 |
 | **編譯通過 ≠ BLE 功能正確** | 改指令行為時，唯一有效的驗收是**實機對真鎖跑一次該 TaskCode，貼出畫面 log 輸出**。做不到就明說「未實機驗證」。 |
-| **測試基建未導入** | 只有 4 個 Android 範本檔（B3）。「測試通過」目前不可能為真。 |
+| **測試基建未導入** | 目前只有 Android 範本測試檔、沒有實質測試基建（B3）。執行測試後須回報實際的 task、測試數與涵蓋範圍，不得把範本測試通過描述成「本次功能已驗證」。 |
 | **無 productFlavors** | task 名是 `:app:compileDebugKotlin`，不是 v3 那種帶 flavor 的長名字。 |
 | **協定世代 1/2/3** | 同一功能在不同世代的封包可能不同或不支援。`BleDeviceFeature.modelVersions` 是機種↔世代對照表，動功能前先查。 |
 
@@ -68,7 +68,7 @@ Windows 11＋PowerShell 5.1（`&&` 不能用、預設編碼陷阱多）、使用
 | 退化方式 | 症狀 | 預防（已內建的防線） |
 |----------|------|----------------------|
 | **規則通膨** | 每踩一次坑加一條規則，CLAUDE.md 膨脹到沒有一條顯眼 | skill `rules/40-maintenance-protocol.md` §3 行數預算；教訓優先寫成既有條目的正反例，不新開規則 |
-| **儀式化合規** | 跑了 checklist 的形式、沒跑實質——「✅」打了但沒有證據 | 每個 ✅ 必附證據（指令＋輸出）；fresh-context 驗收不自驗；空口宣稱＝鐵律 10 違規 |
+| **儀式化合規** | 跑了 checklist 的形式、沒跑實質——「✅」打了但沒有證據 | 每個 ✅ 必附證據（指令＋輸出）；fresh-context 驗收不自驗——中高風險的改動在宣稱完成前派 fresh-context agent 驗收，低風險跑完確定性閘門即可（分級見 skill android-dev-governance 的 rules/10 §6）；產出者一律不得自驗；空口宣稱＝鐵律 10 違規 |
 | **拿產品標準套 Demo App** | 提議拆 God VM、導入抽象層、統一 UI 字串——全是「正確但不該現在做」 | backlog 開頭「先講清楚：這是 Demo App」章節；B1 明確標示低優先並寫明理由 |
 | **姊妹專案記憶污染** | 把 v3 的 flavor／MQTT／F1-F5 編號套到本專案 | 本檔 §1.2 明列差異；CLAUDE.md 開頭「本專案的定位決定規範強度」段落 |
 | **文件與現實脫鉤** | 行號、檔案數變了沒人更新，模型開始整體不信任文件 | skill `rules/10-model-dispatch.md` 規則零（實際檔案為準＋有義務回寫）；skill `rules/40` §4 健檢 |
@@ -175,3 +175,6 @@ Windows 11＋PowerShell 5.1（`&&` 不能用、預設編碼陷阱多）、使用
   **push 由使用者自己做**（AI 不 push）；本次 submodule 零改動，所以只推主專案即可，
   日後做 R3.5 動到 submodule 時才要注意「submodule 先推 ＋ 通知 v3 同步」（backlog G6）。
   **B5-4 下半段全是真機項目**，在那些跑完前 B5／R1 不算結案（鐵律 10）。
+- **2026-09-18（Opus 5）**：**正文引用更正**（正文凍結不改，在此更正）。
+  正文的「注意 CLAUDE.md §6 的禁用詞表」→ 本專案 `CLAUDE.md` 只有 §1、§2；
+  禁用詞表實際在 **`AGENTS.md` §6「語言規則（強制）」**。

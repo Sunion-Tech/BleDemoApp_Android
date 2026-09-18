@@ -26,7 +26,7 @@ Git 規範、進度文件路由）全部寫在 [AGENTS.md](AGENTS.md)**，由上
 - **預設工作模式：Orchestrator**——任何 Android 任務先套用 `android-dev-governance` 與
   `android-expert` 兩個 skill；規劃拆解與最終審核由主模型負責，執行細節委派低成本 subagent，
   context 只留決策與總結，每個子任務附機械可查的驗收標準，盡量平行委派
-  （細則見 skill `android-dev-governance` `rules/10-model-dispatch.md`）。除非使用者明確說「直接執行」，否則都用此模式。
+  （細則見 skill `android-dev-governance` `rules/10-model-dispatch.md`）。是否派工與驗收強度依 android-dev-governance 的輕重分級與 rules/10 §6 風險分級判定——單步且明確的任務直接做，不強制派工；架構定案與最終審核由主對話負責。
 - **Skill 白名單**（唯一定義處；名稱以 session 內 available-skills 清單所列**全名**為準，plugin skill 帶
   `plugin:` 前綴）：`android-dev-governance`、`android-expert`、`orchestrator`、
   `engineering:code-review`、`review`、`security-review`、`run`、`simplify`、`update-config`、
