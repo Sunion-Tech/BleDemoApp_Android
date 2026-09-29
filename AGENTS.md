@@ -74,15 +74,9 @@ minSdk 26、**無 productFlavors**，只有 `debug` / `release` 兩個 buildType
 | `../Config/BleDemoApp/secure.properties` | `BARCODE_KEY`、`API_GATEWAY_ENDPOINT`、`API_KEY`（`buildConfigField`，在 `defaultConfig` 內，所有 variant 都要） | 建置失敗 |
 | `../Config/BleDemoApp/keystore.properties` ＋ 其指向的 keystore | **release 簽章**用的 keystore 路徑、alias 與密碼 | 建置失敗（**含 debug**，理由見下方 ⚠️） |
 
-**簽章分工（2026-07-29 實測 APK 憑證，非推論）**：
-
-| 版本 | 用哪個 keystore | 憑證 DN |
-|------|----------------|---------|
-| **debug** | AGP 內建的 `~/.android/debug.keystore` | `C=US, O=Android, CN=Android Debug` |
-| **release** | `keystore.properties` 指向的 Sunion keystore | `C=TW, O=Sunion, CN=SunionAppTeam` |
-
 **`signingConfig` 雖然宣告在 `defaultConfig`，debug 並不會拿到 Sunion 簽章**——AGP 的 debug
 buildType 預設簽章優先。所以「**debug 版不需要 Sunion 的 keystore**」，這點與 BleMFRDemoApp 相同。
+憑證 DN 實測表 → [docs/ai/AGENTS_REFERENCE.md](docs/ai/AGENTS_REFERENCE.md) §1。
 
 ⚠️ **但 `keystore.properties` 這個檔案，連跑 debug 都必須存在**：`app/build.gradle` 的
 `signingConfigs { BleDemoApp { … new FileInputStream(…) } }` 在 **configuration 階段無條件執行**，
@@ -159,39 +153,7 @@ APK 輸出名由 `apkBaseName` ＋ `androidComponents.onVariants` 產生：
 
 ## 2. 架構速覽
 
-```
-MainActivity（ComponentActivity，onCreate 一次性請求全部權限）
-  └ NavigationComponent（定義在 `MainActivity.kt`，外層 NavHost；由 `onCreate` 的 `setContent` 呼叫）
-      └ HomeNavHost（內層 NavHost）── HomeScreen / ScanQRCodeScreen（Compose Material 2）
-        │ collectAsState()
-     HomeViewModel     唯一 ViewModel（約 4500 行、注入 30 個依賴）
-        │              StateFlow<UiState> + SharedFlow<UiEvent> + StateFlow<MutableList<String>> logList
-        │ executeTask() 依 TaskCode 分派
-     UseCase           core_ble_android/usecase/（suspend + Flow）
-        │
-     BleCmdRepository  封包組裝／解析＋AES-ECB 加解密
-        │
-     ReactiveStatefulConnection  RxJava2（RxAndroidBle）→ rx2 asFlow() 橋接給上層
-```
-
-### 模組
-
-| 模組 | package | 檔數（`src/main`） | 性質 |
-|------|---------|:---:|------|
-| `:app` | `com.sunion.ble.demoapp` | 32 | Demo UI、HomeViewModel、Retrofit API、OTA Worker |
-| `:core_ble_android` | `com.sunion.core.ble` | 74 | **Git submodule**，BLE 協定實作（見 §5） |
-
-> 檔數不含測試；兩模組各有 2 個 Android 範本測試檔（共 4 個，見 backlog B4）。
-
-### core_ble_android 目錄
-
-| 目錄 | 檔數 | 放什麼 |
-|------|:---:|--------|
-| 根層 | 9 | `StatefulConnection` / `ReactiveStatefulConnection`（連線）、`BleCmdRepository`（封包＋加密）、`BleHandShakeUseCase`、`Scheduler`、`CountDownTimer`、`UseCase`、`unless`、`Extension.kt` |
-| `command/` | 7 | `BleCommand<I,R>` 實作，指令建立與解析（`XxxCommand`） |
-| `usecase/` | 27 | 業務邏輯（`XxxUseCase` ＋ `@Inject constructor`；帶 `@Singleton` 的**不是全體**——新增時跟隨同類既有檔） |
-| `entity/` | 29 | sealed class 資料模型（`DeviceStatus`、`LockConfig`、`User`、`Access`、`Credential`、`BleV2Lock`、`BleV3Lock`…） |
-| `exception/` | 2 | 自訂例外（`NotConnectedException`、`LockStatusException`…） |
+→ 已移至 [docs/ai/AGENTS_REFERENCE.md](docs/ai/AGENTS_REFERENCE.md) §2（分層圖、模組與目錄表、「我要找…」對照表：要在程式碼中定位功能時讀；下方「BLE 協定世代」子節仍留在本檔）
 
 ### BLE 協定世代（決定功能可見於哪些機種）
 
@@ -208,22 +170,6 @@ V2 設定值定義在 `entity/BleV2Lock.kt`、V3 在 `entity/BleV3Lock.kt`。
 
 新增功能則要想清楚它屬於哪幾代（`taskList` 第三元素）。
 
-### 我要找…
-
-| 我要找… | 去這裡 |
-|---------|--------|
-| 某個 BLE 功能的執行邏輯 | `HomeViewModel.kt` 的 `executeTask()` when 分支 → 對應私有 suspend 函式 |
-| 功能清單／機種支援矩陣 | `core_ble_android/entity/BleDeviceFeature.kt`（`taskList`、`modelVersions`、`TaskCode`） |
-| 指令 byte 怎麼組／怎麼解 | `core_ble_android/BleCmdRepository.kt`（`createCommand` / `resolve` / `encrypt` / `decrypt`） |
-| 連線、掃描、通知訂閱 | `core_ble_android/ReactiveStatefulConnection.kt`、`usecase/BleScanUseCase.kt`、`usecase/IncomingSunionBleNotificationUseCase.kt` |
-| DI | `app/di/BleModule.kt`（RxBleClient、StatefulConnection binding）、`app/di/AppModule.kt`（OkHttp、Retrofit、DeviceAPI） |
-| 遠端 API | `app/data/api/`（`DeviceAPI`、`DeviceApiRepository`、Interceptor） |
-| OTA | `app/OtaWorker.kt`、`OtaNotificationManager.kt`、`WorkerManager.kt`、`core_ble_android/usecase/LockOTAUseCase.kt` |
-| 共用 UI 元件／主題 | `app/ui/component/`、`app/ui/theme/` |
-
-> `core_ble_android` **沒有自己的 Hilt Module**：全部靠 `@Singleton` ＋ `@Inject constructor` 由消費端解析。
-> 新增 UseCase 照這個寫法即可，不要新開 Module。
-
 ---
 
 ## 3. 新增 BLE 功能的標準鏈路（本專案最重要的一條）
@@ -235,7 +181,7 @@ V2 設定值定義在 `entity/BleV2Lock.kt`、V3 在 `entity/BleV3Lock.kt`。
 2. **`core_ble_android/usecase/XxxUseCase.kt`**：實作指令（`suspend fun`、
    `setupSingleNotificationThenSendCommand` → `filter` → `take(1)` → `map` → `single()`，範式見 CODE_PATTERNS §2）。
    UseCase 的 scope annotation 依同類既有實作與生命週期需求決定，不一律加 `@Singleton`。
-   複雜封包才需要在 `command/` 新增 `XxxCommand`。
+   複雜封包才需要在 `command/` 新增 `XxxCommand`。`core_ble_android` 沒有自己的 Hilt Module，不要新開 Module（見參考檔 §2）。
 3. **`HomeViewModel`**：建構子注入該 UseCase；`executeTask()` 的 `when` 加分支；
    新增 `private suspend fun xxx()` 呼叫 UseCase 並 `showLog(...)` 輸出結果。
 4. **UI 不用改**——`HomeScreen` 的下拉選單直接 `uiState.taskList.forEach` 渲染。
@@ -323,6 +269,7 @@ route 字串**沿用既有的 PascalCase**（`HomeRoute("Home")`、`HomeRoute("S
 | 想知道什麼 | 讀這個 |
 |---|---|
 | 新增／修改 BLE 指令、UseCase、HomeViewModel 函式；動 Coroutine/Flow | [docs/ai/CODE_PATTERNS.md](docs/ai/CODE_PATTERNS.md)（完整範式） |
+| 要在程式碼裡定位功能（分層圖、模組／目錄表、「我要找…」對照）；或查 debug／release 簽章憑證分工 | [docs/ai/AGENTS_REFERENCE.md](docs/ai/AGENTS_REFERENCE.md)（§2 架構速覽、§1 簽章分工表；從本檔搬出的按需參考，內文為原文） |
 | BLE 協定 frame／指令碼／加解密（動 BLE 封包前必讀，嚴禁憑通識杜撰） | repo 外 `../Document/` 的 `Sunion BLE cmd V1.md`／`V2.md`／`V3.md`（三個獨立檔）（本專案用 `core_ble_android`＝驗證 BLE V1~V3，程式碼含 `BleV2Lock`/`BleV3Lock`；MFR 版是姊妹專案用、本專案不需要） |
 | 技術債（B1–B6）、測試導入、KMP 評估、Git 現況 | [docs/REFACTORING_BACKLOG.md](docs/REFACTORING_BACKLOG.md)（活文件，最新進度看這裡） |
 | **接下來要做什麼、為什麼是這個順序** | 同上 §R 演進路線圖（R0–R7）。R0–R3 已完成，下一步是 **R3.5 例外語意與取消傳播修正**（§R.3.2），之後才是 **R4 跨語言測試向量**（＝B3 階段 1）；KMP 評估要等 B1–B5＋R1–R4 全部完成，判準見 §R.3.1 |
