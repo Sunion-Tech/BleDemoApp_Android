@@ -12,8 +12,7 @@ minSdk 26、**無 productFlavors**，只有 `debug` / `release` 兩個 buildType
 > **版本矩陣刻意不寫在本檔**：Gradle／AGP／Kotlin／KSP／Hilt／Compose／compileSdk 的具體版本
 > 以 root `build.gradle` 的 `ext` 與 `app/build.gradle` 為唯一真相；升級紀錄與版本對照見
 > [docs/REFACTORING_BACKLOG.md](docs/REFACTORING_BACKLOG.md) §B5。
-> **為什麼**：寫進文件的版本號每次升級都會過期一次——2026-07-29 升 Android 17（targetSdk 37／AGP 9）時，
-> 本段原本列的五個版本號全部作廢。**不要再把版本號寫回這裡。**
+> **為什麼**：寫進文件的版本號每次升級都會過期，不要寫進本檔。
 > 附帶事實：**annotation processor 已全面是 KSP，kapt 已從專案移除**（看到文件或範例寫 `kapt` 就是過期資訊）。
 
 > **本專案的定位決定規範強度**：它是給韌體／App 工程師逐條打 BLE 指令、看 log 驗證的工具，
@@ -53,8 +52,7 @@ minSdk 26、**無 productFlavors**，只有 `debug` / `release` 兩個 buildType
     可機械檢查：`grep -rE "\.(kt|kts|java|py|yaml|md|gradle):[0-9]"`。
     ⚠ 預期會有兩類命中不算違反：本條自身的 ❌ 範例，以及刻意記錄「某次錯誤參照」的說明。
     **為什麼**：行號隨改動過期只是其一，更嚴重的是**複製檔案時數字不會跟著換**——
-    2026-09-04 在 `Sunion_iKeyConnect_v3_Android` 實例：Maestro flow 由 BLE 版機械複製成 WiFi 版時
-    （產生器只換 testTag 前綴），行號原封不動帶過去，參照於是指向完全另一個功能——
+    例如機械複製 Maestro flow 時，行號原封不動帶過去，參照於是指向完全另一個功能——
     **產生的當下就是錯的，而且會誤導人**。
 12. **規則同步——依規範性質判斷，不依檔案**。改到**具五專案共通性的規範**時
     （鐵律層級的紀律、commit 與 merge 規範、建置驗證流程與環境限制——同一台機器共用），
@@ -107,10 +105,10 @@ keystore 得先 `--stop`（本專案的 build script 寫法問題，已記入 ba
 & "$HOME\.claude\tools\gradle-detached.ps1" -TimeoutSec 900 :app:assembleRelease
 ```
 
-- 一次呼叫做完：建可見視窗 → 視窗即時串流 build log → 回傳完整 log 與 `EXITCODE=n`（log 落在 `%TEMP%\gradle-detached-<repo>.log`，UTF-8）
+- 一次呼叫做完：建可見視窗 → 視窗即時串流 build log → 回傳完整 log（內含 `EXITCODE=n`；stdout 最後一行是 `LOG=<path>`，每次建置各自一份帶時間戳記的 log，UTF-8；同一 repo 的建置須依序執行，並行會被 lock 拒絕）
 - ⚠️ **判定成敗看 log 內的 `EXITCODE=` 或 `BUILD SUCCESSFUL/FAILED`，不要看背景任務／呼叫端的 exit code**：
-  此腳本外層只回傳 log、**不把 gradle 的離場碼往上傳**，build 失敗時仍可能報 exit 0（2026-07-29 實際誤判過一次）。
-- 視窗跑完 10 秒自動關閉或按任意鍵關閉；`-CloseAfterSec 0` 不留視窗
+  此腳本外層只回傳 log、**不把 gradle 的離場碼往上傳**，build 失敗時仍可能報 exit 0。
+- 視窗跑完預設 3 秒自動關閉或按任意鍵關閉；`-CloseAfterSec 0` 不留視窗
 - 逾時預設 600s（`-TimeoutSec` 可調），逾時或無 log 時，先確認原建置程序是否仍在執行、並核對本次 log 的完成標記；確認原程序已結束後才決定是否重試，不要直接判定「沒跑起來」就重跑
 - 已驗證無效、不要再試：`dangerouslyDisableSandbox`、`JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`、
   `Start-Process`（EPERM）、改用 git bash
@@ -149,13 +147,12 @@ APK 輸出名由 `apkBaseName` ＋ `androidComponents.onVariants` 產生：
 **驗證工作流**：編譯先行 → 失敗自癒（自行擷取 log 失敗段修正重編，不邊改邊丟回使用者）→ 實機收尾
 （需人工上機的項目累積成一份清單一次交付）。細則見 skill `android-dev-governance` `rules/50-android-workflow.md`。
 
-**檔案讀寫用工具內建的檔案編輯功能，不要用 shell**（Windows PowerShell 5.1 編碼陷阱多：
+**檔案讀寫用工具內建的檔案編輯功能，不要用 shell**（Claude Code 的 PowerShell 工具是 PowerShell 7（UTF-8）；若改用系統內建的 Windows PowerShell 5.1（`powershell.exe`），
 無 BOM 的 `.ps1` 會被當 ANSI codepage 950 讀，CJK 註解會破壞語法）；shell 只用來執行程式（git、gradle）。
 
-⚠️ **同一個編碼陷阱會讓「數行數」默默算錯**（2026-07-29 實測）：對 `HomeViewModel.kt` 跑
-`Get-Content x.kt | Measure-Object -Line` 回報 **4191**，實際是 **4496** 行（少 305 行）——PowerShell 5.1 把
-無 BOM UTF-8 當 codepage 950 讀，CJK 位元組吃掉了換行。要數行數用
-`[System.IO.File]::ReadAllLines($f, [System.Text.Encoding]::UTF8).Count`，
+⚠️ **`Measure-Object -Line` 不計空白行，數行數會默默算錯**：對 `HomeViewModel.kt` 跑
+`Get-Content x.kt | Measure-Object -Line` 回報 **4191**，實際是 **4496** 行——少掉的 305 行正是空白行，
+與編碼無關（PowerShell 7 結果相同）。要數行數用 `(Get-Content $f).Count`，
 或直接用 Read／Grep 工具看行號。**別拿 `Measure-Object -Line` 的數字寫進文件。**
 
 ---
@@ -246,7 +243,7 @@ V2 設定值定義在 `entity/BleV2Lock.kt`、V3 在 `entity/BleV3Lock.kt`。
 
 > ⚠️ **加完看不到新功能不代表失敗**：`UiState.taskList` 預設值是 `BleDeviceFeature.initTaskList`
 > （只有 Connect / Disconnect）。**連線成功後**才由 `setModelSupportTaskList()` 換成依機種過濾的
-> `taskList`（`:3340`），斷線又重設回 `initTaskList`（`:3045`）。驗證新 TaskCode 一定要先連上鎖。
+> `taskList`，斷線時再重設回 `initTaskList`。驗證新 TaskCode 一定要先連上鎖。
 
 步驟 1、2 在 submodule 內 → **必須獨立 commit**（鐵律 3）。
 
@@ -309,7 +306,7 @@ route 字串**沿用既有的 PascalCase**（`HomeRoute("Home")`、`HomeRoute("S
 
 ---
 
-## 6. 語言規則（強制）
+## 6. 語言規則
 
 - 對話與文件**全程繁體中文（台灣）**，技術名詞保留英文。
 - 禁用詞→正確用詞：数组→陣列、线程→執行緒、崩溃→閃退、后台→背景、组件→元件。
@@ -325,10 +322,10 @@ route 字串**沿用既有的 PascalCase**（`HomeRoute("Home")`、`HomeRoute("S
 
 | 想知道什麼 | 讀這個 |
 |---|---|
-| 新增／修改 BLE 指令、UseCase、HomeViewModel 函式；動 Coroutine/Flow | [docs/ai/CODE_PATTERNS.md](docs/ai/CODE_PATTERNS.md)（完整範式，照抄即正確） |
+| 新增／修改 BLE 指令、UseCase、HomeViewModel 函式；動 Coroutine/Flow | [docs/ai/CODE_PATTERNS.md](docs/ai/CODE_PATTERNS.md)（完整範式） |
 | BLE 協定 frame／指令碼／加解密（動 BLE 封包前必讀，嚴禁憑通識杜撰） | repo 外 `../Document/` 的 `Sunion BLE cmd V1.md`／`V2.md`／`V3.md`（三個獨立檔）（本專案用 `core_ble_android`＝驗證 BLE V1~V3，程式碼含 `BleV2Lock`/`BleV3Lock`；MFR 版是姊妹專案用、本專案不需要） |
 | 技術債（B1–B6）、測試導入、KMP 評估、Git 現況 | [docs/REFACTORING_BACKLOG.md](docs/REFACTORING_BACKLOG.md)（活文件，最新進度看這裡） |
-| **接下來要做什麼、為什麼是這個順序** | 同上 §R 演進路線圖（R0–R7）。R0–R3 已完成，下一步是 **R4 跨語言測試向量**（＝B3 階段 1）；KMP 評估要等 B1–B5＋R1–R4 全部完成，判準見 §R.3.1 |
+| **接下來要做什麼、為什麼是這個順序** | 同上 §R 演進路線圖（R0–R7）。R0–R3 已完成，下一步是 **R3.5 例外語意與取消傳播修正**（§R.3.2），之後才是 **R4 跨語言測試向量**（＝B3 階段 1）；KMP 評估要等 B1–B5＋R1–R4 全部完成，判準見 §R.3.1 |
 | Android 17（targetSdk 37）升級的實際做法 | **本專案已於 2026-07-29 升完**，實跑結果與踩雷紀錄見 backlog B5-2／B5-4。姊妹專案 `Sunion_iKeyConnect_v3_Android/docs/android-17-migration/android-sdk-upgrade-guide.md` 仍是最完整的通用指南，**下次大版升級（Gradle 10／Android 18）再讀** |
 | 接手長期工作的背景與陷阱 | [docs/ai/LETTER_TO_FUTURE_SESSIONS.md](docs/ai/LETTER_TO_FUTURE_SESSIONS.md) |
 | 過去實際做了什麼、何時做的 | `git log --oneline`（commit 訊息是繁中且分類前綴齊全，比任何摘要可靠） |

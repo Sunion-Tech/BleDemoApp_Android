@@ -2,12 +2,11 @@
 
 > **何時讀本檔**：要新增或修改 BLE 指令、UseCase、`HomeViewModel` 函式，或動到 Coroutine/Flow 之前**必讀**；
 > 只做小幅修改（改字串、調參數）不必讀。
-> 規則摘要在 [CLAUDE.md](../../CLAUDE.md)，本檔是可直接照抄的完整範例（**內容全部源自本 repo 實際程式碼**，
+> 規則摘要在 [AGENTS.md](../../AGENTS.md)，本檔是可直接照抄的完整範例（**內容全部源自本 repo 實際程式碼**，
 > 以 `HomeViewModel`、`LockAccessCodeUseCase`、`DeviceStatus82Command` 為範本）。
-> 範例即規格：**新程式碼長得跟範例不一樣就是錯**（除非該檔既有寫法不同——跟隨既有寫法並在回報中註明）。
+> 範例是本專案的慣用寫法：新程式碼與範例不同時，先確認理由（例如該檔既有寫法不同——跟隨既有寫法），並在回報中註明。
 >
-> **最後與程式碼對齊：2026-07-29**（Android 17／AGP 9 升級後）。行號會漂，以實際檔案為準。
-> 該次升級**沒有改動任何程式碼範式**——只動 build script 與 `HiltApplication` 的 WorkManager API。
+> **最後與程式碼對齊：2026-07-29**。以實際檔案為準。
 > 例外語意／取消傳播的修正刻意排到 backlog **§R 階段 R3.5**（見 §3.2 的提醒）。
 > 本檔不寫任何套件版本號——版本以 `build.gradle` 為準（理由見 [AGENTS.md](../../AGENTS.md) 開頭）。
 
@@ -27,18 +26,18 @@
 ```
 
 新增功能＝**在這條鏈路上補齊四個點**（TaskCode／taskList、UseCase、VM 分支、VM 私有函式）。
-細節見 [CLAUDE.md §3](../../CLAUDE.md)。
+細節見 [AGENTS.md §3](../../AGENTS.md)。
 
 > ⚠️ **清單是連線後才長出來的**：`UiState.taskList` 預設是 `BleDeviceFeature.initTaskList`
-> （只有 Connect / Disconnect，`HomeViewModel.kt:4479`）；連線成功後 `setModelSupportTaskList()`
-> （`:3305`）依機種 `removeIf` 過濾後才換上完整 `taskList`（`:3340`），斷線重設回 initTaskList（`:3045`）。
+> （只有 Connect / Disconnect）；連線成功後 `setModelSupportTaskList()`
+> 依機種 `removeIf` 過濾後才換上完整 `taskList`，斷線重設回 initTaskList。
 > 加了新 TaskCode 在未連線畫面看不到是正常的，不是你寫錯。
 
 ---
 
 ## 1. BLE UseCase 標準結構（`core_ble_android/usecase/`）
 
-以 `LockAccessCodeUseCase.getAccessCodeArray()` 為範本（`core_ble_android/.../usecase/LockAccessCodeUseCase.kt:15`）。
+以 `LockAccessCodeUseCase.getAccessCodeArray()` 為範本（`core_ble_android/.../usecase/LockAccessCodeUseCase.kt`）。
 下列片段為**可讀性整理版**：省略了原始碼第二個 `.map` 內一行無作用的 `list.toList()`（死碼），
 並把多行呼叫壓成單行。邏輯與算子順序與原檔一致，要逐字對照請開原檔。
 
@@ -55,7 +54,7 @@ class LockAccessCodeUseCase @Inject constructor(
         // ① 前置檢查：未連線直接丟例外，不要回傳空值假裝成功
         if (!statefulConnection.isConnectedWithDevice()) throw NotConnectedException()
 
-        // ② functionName ＋ function code 常數化（CLAUDE.md 鐵律 6）
+        // ② functionName ＋ function code 常數化（AGENTS.md 鐵律 6）
         val functionName = ::getAccessCodeArray.name
         val function = 0xEA
 
@@ -178,15 +177,15 @@ class DeviceStatus82Command(private val bleCmdRepository: BleCmdRepository) :
 或 `{Subject}Command`（`AccessCodeCommand`、`WifiListCommand`、`WifiConnectCommand`）。
 回傳型別對應 `entity/` 的 sealed class 子類（`DeviceStatus.EightTwo`、`LockConfig.D4`…）。
 
-封包底層（`BleCmdRepository.kt`）：AES-ECB（`AES/ECB/NoPadding`，`:25`）、
-`pad()` 補到 16 bytes 對齊（`:200`）、MTU 由 `ReactiveStatefulConnection` 協商
-（`connection.requestMtu(GATT_MTU_MAXIMUM)`，`:229`）。**上層不管分包。**
+封包底層（`BleCmdRepository.kt`）：AES-ECB（`AES/ECB/NoPadding`）、
+`pad()` 補到 16 bytes 對齊、MTU 由 `ReactiveStatefulConnection` 協商
+（`connection.requestMtu(GATT_MTU_MAXIMUM)`）。**上層不管分包。**
 
 ---
 
 ## 3. HomeViewModel 範式（`app/.../HomeViewModel.kt`）
 
-### 3.1 結構（`:49` 註解、`:50` class 宣告）
+### 3.1 結構（檔頭註解與 class 宣告）
 
 ```kotlin
 @HiltViewModel
@@ -267,7 +266,7 @@ BleDeviceFeature.TaskCode.GetLockTime -> {
     getLockTime()
 }
 
-// ② 私有 suspend 函式（HomeViewModel.kt 實際程式碼，逐字）
+// ② 私有 suspend 函式（HomeViewModel.kt 實際程式碼，逐字；新函式的 functionName 改用 `::getLockTime.name`，見下段）
 private suspend fun getLockTime(): Int {
     val functionName = "getLockTime"
     val result = lockTimeUseCase.getTime()
@@ -280,10 +279,10 @@ private suspend fun getLockTime(): Int {
 反射式 `::xxx.name` 17 處）。新程式碼優先反射式（改名會跟著走），改既有函式則跟隨該檔鄰近寫法。
 
 函式有無回傳值都可以——`executeTask()` 與 `executeAutoTest()` 的 when 分支都是**裸呼叫、不取回傳值**，
-全檔只有 `:745`（`isAdminCodeExists()`）、`:3033`（`isOtaWorkerExist()`）真的消費回傳值。
+全檔只有 `isAdminCodeExists()`、`isOtaWorkerExist()` 真的消費回傳值。
 所以回傳型別只在你自己需要串接時才加。
 
-外部進入點（非 `executeTask` 觸發的）則自己起 coroutine 並包 `runWithLoading`（`:3056` `setQRCodeContent` 為例）：
+外部進入點（非 `executeTask` 觸發的）則自己起 coroutine 並包 `runWithLoading`（`setQRCodeContent` 為例）：
 
 ```kotlin
 fun setQRCodeContent(content: String) {
@@ -361,10 +360,10 @@ Button(onClick = { statefulConnection.setupSingleNotificationThenSendCommand(/* 
 - 全 Material 2（`import androidx.compose.material.*`），**不准出現 material3**。
 - 相機權限用 Accompanist（`rememberPermissionState`）；BLE／通知權限則在
   `MainActivity.onCreate()` 一次性用 `RequestMultiplePermissions` 請求
-  （launcher 宣告 `MainActivity.kt:24`，實際 `launch()` 在 `:83`）。
+  （launcher 宣告與實際 `launch()` 都在 `MainActivity`）。
 - 導航：`HomeNavHost.kt` 的 `sealed class HomeRoute(val route: String)`，
-  route 字串**沿用既有 PascalCase**（`"Home"`、`"Scan"`，`:24`）。
-  另注意 `MainActivity.kt:89` 的 `NavigationComponent` 是外層 NavHost，`HomeNavHost` 是內層——**巢狀雙 NavHost**。
+  route 字串**沿用既有 PascalCase**（`"Home"`、`"Scan"`）。
+  另注意 `MainActivity` 的 `NavigationComponent` 是外層 NavHost，`HomeNavHost` 是內層——**巢狀雙 NavHost**。
 
 ---
 

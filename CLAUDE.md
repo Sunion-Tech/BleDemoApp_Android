@@ -24,16 +24,14 @@ Git 規範、進度文件路由）全部寫在 [AGENTS.md](AGENTS.md)**，由上
 ## 2. AI 作業規則
 
 - **預設工作模式：Orchestrator**——任何 Android 任務先套用 `android-dev-governance` 與
-  `android-expert` 兩個 skill；規劃拆解與最終審核由主模型負責，執行細節委派低成本 subagent，
-  context 只留決策與總結，每個子任務附機械可查的驗收標準，盡量平行委派
+  `android-expert` 兩個 skill；規劃拆解與最終審核由主模型負責；需要派工時，每個子任務附機械可查的驗收標準，
+  互不相依者可平行委派
   （細則見 skill `android-dev-governance` `rules/10-model-dispatch.md`）。是否派工與驗收強度依 android-dev-governance 的輕重分級與 rules/10 §6 風險分級判定——單步且明確的任務直接做，不強制派工；架構定案與最終審核由主對話負責。
 - **Skill 白名單**（唯一定義處；名稱以 session 內 available-skills 清單所列**全名**為準，plugin skill 帶
-  `plugin:` 前綴）：`android-dev-governance`、`android-expert`、`orchestrator`、
-  `engineering:code-review`、`review`、`security-review`、`run`、`simplify`、`update-config`、
-  `anthropic-skills:skill-creator`、`grilling`、`grill-me`、`codebase-design`；
+  `plugin:` 前綴）：`android-dev-governance`、`android-expert`、`code-review`、`run`、`simplify`、
+  `update-config`、`anthropic-skills:skill-creator`、`grilling`、`grill-me`、`codebase-design`；
   其他 skill 僅在使用者明確指名（輸入 `/<skill>`）時使用。
-  **清單以 session 實際載入的 available-skills 為準**——名稱對不上就以 session 為準並回報，
-  不要硬呼叫不存在的 skill。
+  **清單以 session 實際載入的 available-skills 為準**——名稱對不上就以 session 為準並回報，不要硬呼叫不存在的 skill。
 - **制度分工（三層，各有明確職責）**：
   - skill `android-dev-governance`（rules/00–60）＝**跨專案**的開發流程制度（派工／驗證／判準／commit／merge），
     該範圍的**唯一來源**；skill `android-expert` ＝ Android 程式寫法領域規範。

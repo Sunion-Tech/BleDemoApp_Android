@@ -178,3 +178,6 @@ Windows 11＋PowerShell 5.1（`&&` 不能用、預設編碼陷阱多）、使用
 - **2026-09-18（Opus 5）**：**正文引用更正**（正文凍結不改，在此更正）。
   正文的「注意 CLAUDE.md §6 的禁用詞表」→ 本專案 `CLAUDE.md` 只有 §1、§2；
   禁用詞表實際在 **`AGENTS.md` §6「語言規則（強制）」**。
+- **2026-09-29（Opus 5.5）**：**正文引用更正**（正文凍結不改，在此更正）。
+  正文的「gradle 長任務用 run_in_background」已被取代：Claude Code 桌面版 shell 內直接跑 `.\gradlew` 會 loopback 失敗，
+  一律依 **`AGENTS.md` §1** 用 `gradle-detached.ps1`，判定成敗看 log 內的 `EXITCODE=`。
